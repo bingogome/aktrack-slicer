@@ -55,60 +55,6 @@ This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc
 and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
 """
 
-        # Additional initialization step after application startup is complete
-        slicer.app.connect("startupCompleted()", registerSampleData)
-
-
-#
-# Register sample data sets in Sample Data module
-#
-
-def registerSampleData():
-    """
-    Add data sets to Sample Data module.
-    """
-    # It is always recommended to provide sample data for users to make it easy to try the module,
-    # but if no sample data is available then this method (and associated startupCompeted signal connection) can be removed.
-
-    import SampleData
-    iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
-
-    # To ensure that the source code repository remains small (can be downloaded and installed quickly)
-    # it is recommended to store data sets that are larger than a few MB in a Github release.
-
-    # ControlRoom1
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category='ControlRoom',
-        sampleName='ControlRoom1',
-        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
-        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
-        thumbnailFileName=os.path.join(iconsPath, 'ControlRoom1.png'),
-        # Download URL and target file name
-        uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95",
-        fileNames='ControlRoom1.nrrd',
-        # Checksum to ensure file integrity. Can be computed by this command:
-        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
-        checksums='SHA256:998cb522173839c78657f4bc0ea907cea09fd04e44601f17c82ea27927937b95',
-        # This node name will be used when the data set is loaded
-        nodeNames='ControlRoom1'
-    )
-
-    # ControlRoom2
-    SampleData.SampleDataLogic.registerCustomSampleDataSource(
-        # Category and sample name displayed in Sample Data module
-        category='ControlRoom',
-        sampleName='ControlRoom2',
-        thumbnailFileName=os.path.join(iconsPath, 'ControlRoom2.png'),
-        # Download URL and target file name
-        uris="https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97",
-        fileNames='ControlRoom2.nrrd',
-        checksums='SHA256:1a64f3f422eb3d1c9b093d1a18da354b13bcf307907c66317e2463ee530b7a97',
-        # This node name will be used when the data set is loaded
-        nodeNames='ControlRoom2'
-    )
-
-
 #
 # ControlRoomWidget
 #
@@ -157,14 +103,25 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
         # (in the selected parameter node).
-        self.ui.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-        self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-        self.ui.imageThresholdSliderWidget.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
-        self.ui.invertOutputCheckBox.connect("toggled(bool)", self.updateParameterNodeFromGUI)
-        self.ui.invertedOutputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+        self.ui.comboSubjectAcr.connect("currentNodeChanged(vtkMRMLTextNode*)", self.updateParameterNodeFromGUI)
+        self.ui.comboTargetTrial.connect("currentNodeChanged(vtkMRMLTextNode*)", self.updateParameterNodeFromGUI)
 
         # Buttons
-        self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+        self.ui.pushInit.connect('clicked(bool)', self.onPushInit)
+        self.ui.pushRandSeq.connect('clicked(bool)', self.onPushRandSeq)
+        self.ui.pushApplySeq.connect('clicked(bool)', self.onPushApplySeq)
+        self.ui.pushStartVis.connect('clicked(bool)', self.onPushStartVis)
+        self.ui.pushStopVis.connect('clicked(bool)', self.onPushStopVis)
+        self.ui.pushStartAll.connect('clicked(bool)', self.onPushStartAll)
+        self.ui.pushPause.connect('clicked(bool)', self.onPushPause)
+        self.ui.pushStop.connect('clicked(bool)', self.onPushStop)
+        self.ui.pushPrevTrial.connect('clicked(bool)', self.onPushPrevTrial)
+        self.ui.pushStopCurTrial.connect('clicked(bool)', self.onPushStopCurTrial)
+        self.ui.pushCurTrial.connect('clicked(bool)', self.onPushCurTrial)
+        self.ui.pushTargetTrial.connect('clicked(bool)', self.onPushTargetTrial)
+
+        # Text
+        self.ui.textSessionSeq('textChanged(QString)', self.onTextSessionSeq)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -213,12 +170,6 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.setParameterNode(self.logic.getParameterNode())
 
-        # Select default input nodes if nothing is selected yet to save a few clicks for the user
-        if not self._parameterNode.GetNodeReference("InputVolume"):
-            firstVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-            if firstVolumeNode:
-                self._parameterNode.SetNodeReferenceID("InputVolume", firstVolumeNode.GetID())
-
     def setParameterNode(self, inputParameterNode):
         """
         Set and observe parameter node.
@@ -253,13 +204,43 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._updatingGUIFromParameterNode = True
 
         # Update node selectors and sliders
-        self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
-        self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
-        self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
-        self.ui.imageThresholdSliderWidget.value = float(self._parameterNode.GetParameter("Threshold"))
-        self.ui.invertOutputCheckBox.checked = (self._parameterNode.GetParameter("Invert") == "true")
-
+        self.ui.comboSubjectAcr.setCurrentNode(self._parameterNode.GetNodeReference("SubjectAcr"))
+        self.ui.comboTargetTrial.setCurrentNode(self._parameterNode.GetNodeReference("TargetTrial"))
+        
         # Update buttons states and tooltips
+        if self._parameterNode.GetParameter("Initialized") == "true":
+            self.ui.pushInit.toolTip = "Click to reinitialize"
+            self.ui.comboSubjectAcr.enabled = True
+        else:
+            self.ui.pushInit.toolTip = "Click to initialize"
+            self.ui.comboSubjectAcr.enabled = False
+            self.ui.comboSubjectAcr.ToolTip = "Initialize first!"
+
+        if self._parameterNode.GetNodeReference("SubjectAcr"):
+            self.ui.pushRandSeq.enabled = True
+            self.ui.pushRandSeq.ToolTip = "Click to generate a random sequence"
+        else:
+            self.ui.pushRandSeq.enabled = False
+            self.ui.pushRandSeq.ToolTip = "Choose a subject first"
+
+        if not self._parameterNode.GetParameter("SessionSeq"):
+            self.ui.pushApplySeq.enabled = False
+            self.ui.pushApplySeq.toolTip = "Session Sequence is not set"
+        else:
+            self.ui.pushApplySeq.enabled = True
+            self.ui.pushApplySeq.toolTip = "Click to set sequence"
+
+        if self._parameterNode.GetParameter("Visualization") == "true":
+            self.ui.pushStartVis.enabled = False
+            self.ui.pushStartVis.toolTip = "Visualization is enabled"
+            self.ui.pushStopVis.enabled = True
+            self.ui.pushStopVis.toolTip = "Click to stop visualization"
+        else:
+            self.ui.pushStartVis.enabled = True
+            self.ui.pushStartVis.toolTip = "Click to start visualization"
+            self.ui.pushStopVis.enabled = False
+            self.ui.pushStopVis.toolTip = "Visualization not started"
+
         if self._parameterNode.GetNodeReference("InputVolume") and self._parameterNode.GetNodeReference("OutputVolume"):
             self.ui.applyButton.toolTip = "Compute output volume"
             self.ui.applyButton.enabled = True
@@ -334,104 +315,3 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("Threshold", "100.0")
         if not parameterNode.GetParameter("Invert"):
             parameterNode.SetParameter("Invert", "false")
-
-    def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
-        """
-        Run the processing algorithm.
-        Can be used without GUI widget.
-        :param inputVolume: volume to be thresholded
-        :param outputVolume: thresholding result
-        :param imageThreshold: values above/below this threshold will be set to 0
-        :param invert: if True then values above the threshold will be set to 0, otherwise values below are set to 0
-        :param showResult: show output volume in slice viewers
-        """
-
-        if not inputVolume or not outputVolume:
-            raise ValueError("Input or output volume is invalid")
-
-        import time
-        startTime = time.time()
-        logging.info('Processing started')
-
-        # Compute the thresholded output volume using the "Threshold Scalar Volume" CLI module
-        cliParams = {
-            'InputVolume': inputVolume.GetID(),
-            'OutputVolume': outputVolume.GetID(),
-            'ThresholdValue': imageThreshold,
-            'ThresholdType': 'Above' if invert else 'Below'
-        }
-        cliNode = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cliParams, wait_for_completion=True, update_display=showResult)
-        # We don't need the CLI module node anymore, remove it to not clutter the scene with it
-        slicer.mrmlScene.RemoveNode(cliNode)
-
-        stopTime = time.time()
-        logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')
-
-
-#
-# ControlRoomTest
-#
-
-class ControlRoomTest(ScriptedLoadableModuleTest):
-    """
-    This is the test case for your scripted module.
-    Uses ScriptedLoadableModuleTest base class, available at:
-    https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-    """
-
-    def setUp(self):
-        """ Do whatever is needed to reset the state - typically a scene clear will be enough.
-        """
-        slicer.mrmlScene.Clear()
-
-    def runTest(self):
-        """Run as few or as many tests as needed here.
-        """
-        self.setUp()
-        self.test_ControlRoom1()
-
-    def test_ControlRoom1(self):
-        """ Ideally you should have several levels of tests.  At the lowest level
-        tests should exercise the functionality of the logic with different inputs
-        (both valid and invalid).  At higher levels your tests should emulate the
-        way the user would interact with your code and confirm that it still works
-        the way you intended.
-        One of the most important features of the tests is that it should alert other
-        developers when their changes will have an impact on the behavior of your
-        module.  For example, if a developer removes a feature that you depend on,
-        your test should break so they know that the feature is needed.
-        """
-
-        self.delayDisplay("Starting the test")
-
-        # Get/create input data
-
-        import SampleData
-        registerSampleData()
-        inputVolume = SampleData.downloadSample('ControlRoom1')
-        self.delayDisplay('Loaded test data set')
-
-        inputScalarRange = inputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(inputScalarRange[0], 0)
-        self.assertEqual(inputScalarRange[1], 695)
-
-        outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
-        threshold = 100
-
-        # Test the module logic
-
-        logic = ControlRoomLogic()
-
-        # Test algorithm with non-inverted threshold
-        logic.process(inputVolume, outputVolume, threshold, True)
-        outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], threshold)
-
-        # Test algorithm with inverted threshold
-        logic.process(inputVolume, outputVolume, threshold, False)
-        outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], inputScalarRange[1])
-
-        self.delayDisplay('Test passed')

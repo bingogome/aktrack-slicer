@@ -23,6 +23,7 @@ import logging
 import os
 import json
 import random
+from datetime import datetime
 
 import vtk
 
@@ -340,8 +341,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         text = self._parameterNode.GetParameter("SessionSeqTempDisplay")
         if self.logic.processSeqTextCheck(text):
             self._parameterNode.SetParameter("SessionSeq", text)
-        self._parameterNode.SetParameter("CurTrial", text.strip().split("\n")[0])
-        self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+        self.logic.processApplySeq(text)
         
     def onPushStartVis(self):
         self._parameterNode.SetParameter("Visualization", "true")
@@ -408,6 +408,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         for i in self._subjectConfig.keys():
             self._subjectAcrList.append(self._subjectConfig[i]["acronym"]+"_"+i) 
             self._subjectNumList.append(int(i))
+        self._parameterNode = self.getParameterNode()
     
     def processAddSubject(self, acr):
         subjectNum = max(self._subjectNumList)+1
@@ -462,3 +463,16 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
                 return
             saved.remove(i)
         return True
+
+    def processApplySeq(self, text):
+        exp = text.strip().split("\n")
+        self._parameterNode.SetParameter("CurTrial", exp[0])
+        self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+        subj = self._subjectConfig[self._parameterNode.GetParameter("SubjectAcr").split("_")[1]]
+        exparr = subj["experiments"]
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        exparr.append({"datetime": timestamp, "sequence": exp})
+        subj["experiments"] = exparr
+        with open(self._configPath + "SubjectConfig.json", "w") as f:
+            json.dump(self._subjectConfig, f, indent=4)
+        self._parameterNode.SetParameter("ExperimentTimeStamp", timestamp)

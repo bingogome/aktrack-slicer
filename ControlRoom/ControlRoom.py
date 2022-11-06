@@ -115,9 +115,6 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.pushApplySeq.connect('clicked(bool)', self.onPushApplySeq)
         self.ui.pushStartVis.connect('clicked(bool)', self.onPushStartVis)
         self.ui.pushStopVis.connect('clicked(bool)', self.onPushStopVis)
-        self.ui.pushPause.connect('clicked(bool)', self.onPushPause)
-        self.ui.pushResume.connect('clicked(bool)', self.onPushResume)
-        self.ui.pushStop.connect('clicked(bool)', self.onPushStop)
         self.ui.pushPrevTrial.connect('clicked(bool)', self.onPushPrevTrial)
         self.ui.pushStopCurTrial.connect('clicked(bool)', self.onPushStopCurTrial)
         self.ui.pushCurTrial.connect('clicked(bool)', self.onPushCurTrial)
@@ -245,33 +242,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.pushStopVis.enabled = False
             self.ui.pushStopVis.toolTip = "Visualization not started"
 
-        if not self._parameterNode.GetParameter("CurTrial"):
-            self.ui.pushResume.enabled = False
-            self.ui.pushResume.toolTip = "Current trial not set"
-            self.ui.pushCurTrial.enabled = False
-            self.ui.pushCurTrial.toolTip = "Current trial not set"
-        else:
-            self.ui.pushResume.enabled = True
-            self.ui.pushResume.toolTip = "Click to resume"
-            self.ui.pushCurTrial.enabled = True
-            self.ui.pushCurTrial.toolTip = "Current run current trial"
-            self.ui.textCurTrial.setPlainText(self._parameterNode.GetParameter("CurTrial"))
-        
-        if not self._parameterNode.GetParameter("PrevTrial"):
-            self.ui.pushPrevTrial.enabled = False
-            self.ui.pushPrevTrial.toolTip = "Previous trial not set"
-        else:
-            self.ui.pushPrevTrial.enabled = True
-            self.ui.pushPrevTrial.toolTip = "Current run previous trial"
-            self.ui.textPrevTrial.setPlainText(self._parameterNode.GetParameter("PrevTrial"))
-
         if self._parameterNode.GetParameter("RunningATrial") == "true":
-            self.ui.pushPause.enabled = True
-            self.ui.pushPause.toolTip = "Click to pause"
-            self.ui.pushResume.enabled = False
-            self.ui.pushResume.toolTip = "Running"
-            self.ui.pushStop.enabled = True
-            self.ui.pushStop.toolTip = "Click to stop all"
             self.ui.pushPrevTrial.enabled = False
             self.ui.pushPrevTrial.toolTip = "Running"
             self.ui.pushStopCurTrial.enabled = True
@@ -281,12 +252,6 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.pushTargetTrial.enabled = False
             self.ui.pushTargetTrial.toolTip = "Running"
         else:
-            self.ui.pushPause.enabled = False
-            self.ui.pushPause.toolTip = "Not running"
-            self.ui.pushResume.enabled = True
-            self.ui.pushResume.toolTip = "Click to resume"
-            self.ui.pushStop.enabled = False
-            self.ui.pushStop.toolTip = "Not running"
             self.ui.pushPrevTrial.enabled = True
             self.ui.pushPrevTrial.toolTip = "Click to do previous trial"
             self.ui.pushStopCurTrial.enabled = False
@@ -299,6 +264,24 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             else:
                 self.ui.pushTargetTrial.enabled = False
                 self.ui.pushTargetTrial.toolTip = "Pick a target trial first"
+            if not self._parameterNode.GetParameter("CurTrial"):
+                self.ui.pushCurTrial.enabled = False
+                self.ui.pushCurTrial.toolTip = "Current trial not set"
+            else:
+                self.ui.pushCurTrial.enabled = True
+                self.ui.pushCurTrial.toolTip = "Click to run current trial"
+            if not self._parameterNode.GetParameter("PrevTrial"):
+                self.ui.pushPrevTrial.enabled = False
+                self.ui.pushPrevTrial.toolTip = "Previous trial not set"
+            else:
+                self.ui.pushPrevTrial.enabled = True
+                self.ui.pushPrevTrial.toolTip = "Click to run previous trial"
+
+        if self._parameterNode.GetParameter("CurTrial"):
+            self.ui.textCurTrial.setPlainText(self._parameterNode.GetParameter("CurTrial"))
+        
+        if self._parameterNode.GetParameter("PrevTrial"):
+            self.ui.textPrevTrial.setPlainText(self._parameterNode.GetParameter("PrevTrial"))
             
 
         # All the GUI updates are done
@@ -365,15 +348,6 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onPushStopVis(self):
         self._parameterNode.SetParameter("Visualization", "false")
-        
-    def onPushPause(self):
-        return
-        
-    def onPushResume(self):
-        return
-        
-    def onPushStop(self):
-        return
         
     def onPushPrevTrial(self):
         return

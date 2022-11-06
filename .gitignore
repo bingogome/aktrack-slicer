@@ -131,3 +131,6 @@ dmypy.json
 # vs
 .vs/
 .vscode/
+
+# customized
+ControlRoom/Resources/Configs/SubjectConfig.json

@@ -6,32 +6,32 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>384</width>
-    <height>824</height>
+    <width>409</width>
+    <height>960</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <item>
-    <widget class="QPushButton" name="pushInit">
-     <property name="text">
-      <string>Initialization</string>
-     </property>
-    </widget>
-   </item>
    <item>
     <widget class="ctkCollapsibleButton" name="collapInfo">
      <property name="text">
       <string>Subject and Paradigm Info</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="3" column="0">
-       <widget class="QLabel" name="labelSessionSeq">
+      <item row="5" column="0" colspan="2">
+       <widget class="QLabel" name="labelInfo2">
         <property name="text">
-         <string>Session Sequence</string>
+         <string>VPM: Visual Perception of Motion (Moving Dot)</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0" colspan="2">
+      <item row="6" column="0" colspan="2">
+       <widget class="QLabel" name="labelInfo3">
+        <property name="text">
+         <string>VPC: Visual Perception Calibration</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="4">
        <widget class="QPushButton" name="pushRandSeq">
         <property name="text">
          <string>Generate Random Sequence</string>
@@ -45,19 +45,54 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="qMRMLNodeComboBox" name="comboSubjectAcr">
-        <property name="enabled">
-         <bool>false</bool>
+      <item row="0" column="3">
+       <widget class="QPushButton" name="pushAddSubj">
+        <property name="text">
+         <string>Add</string>
         </property>
-        <property name="nodeTypes">
-         <stringlist>
-          <string>vtkMRMLTextNode</string>
-         </stringlist>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QPushButton" name="pushRetrieveSeq">
+        <property name="text">
+         <string>Retrieve Sequence</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="3">
+       <widget class="QTextEdit" name="textSessionSeq">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>200</height>
+         </size>
+        </property>
+        <property name="readOnly">
+         <bool>false</bool>
         </property>
        </widget>
       </item>
       <item row="4" column="0" colspan="2">
+       <widget class="QLabel" name="labelInfo1">
+        <property name="text">
+         <string>VPB: Visual Perception of Bias (Stationary Dot)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" colspan="2">
+       <widget class="QLineEdit" name="textAddSubj"/>
+      </item>
+      <item row="1" column="1" colspan="3">
+       <widget class="QComboBox" name="comboSubjectAcr"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="labelSessionSeq">
+        <property name="text">
+         <string>Session Sequence</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1" colspan="3">
        <widget class="QPushButton" name="pushApplySeq">
         <property name="text">
          <string>Apply Sequence</string>
@@ -65,29 +100,16 @@
        </widget>
       </item>
       <item row="0" column="0">
-       <widget class="QLabel" name="labelSubjectNum">
+       <widget class="QLabel" name="labelAddSubj">
         <property name="text">
-         <string>Subject Number</string>
+         <string>Add a Subject</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
-       <widget class="QTextEdit" name="textSessionSeq">
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>80</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QTextBrowser" name="textSubjectNum">
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>25</height>
-         </size>
+      <item row="8" column="0" colspan="3">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Retrive Sequence if Accidentally Editted</string>
         </property>
        </widget>
       </item>
@@ -98,6 +120,9 @@
     <widget class="ctkCollapsibleButton" name="collapVis">
      <property name="text">
       <string>Visualization</string>
+     </property>
+     <property name="collapsed">
+      <bool>true</bool>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
@@ -125,87 +150,42 @@
      <property name="text">
       <string>Paradigm Control</string>
      </property>
+     <property name="collapsed">
+      <bool>false</bool>
+     </property>
      <layout class="QGridLayout" name="gridLayout_4">
-      <item row="4" column="0">
-       <widget class="QLabel" name="labelPrevTrial">
-        <property name="text">
-         <string>Previous Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="0">
-       <widget class="QLabel" name="labelTargetTrial">
-        <property name="text">
-         <string>Target Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="0">
-       <widget class="QLabel" name="labelCurTrial">
-        <property name="text">
-         <string>Current Trial</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="0" colspan="3">
-       <widget class="QPushButton" name="pushStartAll">
+       <widget class="QPushButton" name="pushPause">
         <property name="text">
-         <string>Start All (Remaining) Trials</string>
+         <string>Pause</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="0" colspan="3">
+      <item row="1" column="0" colspan="3">
+       <widget class="QPushButton" name="pushResume">
+        <property name="text">
+         <string>Resume</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0" colspan="3">
        <widget class="QPushButton" name="pushPrevTrial">
         <property name="text">
          <string>Perform Previous Trial</string>
         </property>
        </widget>
       </item>
-      <item row="6" column="1" colspan="2">
-       <widget class="QTextBrowser" name="textCurTrial">
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>30</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="0" colspan="3">
-       <widget class="QPushButton" name="pushStopCurTrial">
-        <property name="text">
-         <string>Stop Current Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="0" colspan="3">
+      <item row="9" column="0" colspan="3">
        <widget class="QPushButton" name="pushCurTrial">
         <property name="text">
          <string>Perform Current Trial</string>
         </property>
        </widget>
       </item>
-      <item row="11" column="0" colspan="3">
-       <widget class="QPushButton" name="pushTargetTrial">
+      <item row="4" column="0">
+       <widget class="QLabel" name="labelPrevTrial">
         <property name="text">
-         <string>Perform Target Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="1" colspan="2">
-       <widget class="QTextBrowser" name="textPrevTrial">
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>30</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0" colspan="3">
-       <widget class="QPushButton" name="pushPause">
-        <property name="text">
-         <string>Pause</string>
+         <string>Previous Trial</string>
         </property>
        </widget>
       </item>
@@ -216,15 +196,60 @@
         </property>
        </widget>
       </item>
-      <item row="10" column="1">
-       <widget class="qMRMLNodeComboBox" name="comboTargetTrial">
-        <property name="enabled">
-         <bool>false</bool>
+      <item row="13" column="0" colspan="3">
+       <widget class="QPushButton" name="pushTargetTrial">
+        <property name="text">
+         <string>Perform Target Trial</string>
         </property>
-        <property name="nodeTypes">
-         <stringlist>
-          <string>vtkMRMLTextNode</string>
-         </stringlist>
+       </widget>
+      </item>
+      <item row="11" column="0">
+       <widget class="QLabel" name="labelTargetTrial">
+        <property name="text">
+         <string>Target Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0" colspan="3">
+       <widget class="QPushButton" name="pushStopCurTrial">
+        <property name="text">
+         <string>Stop Current Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="labelCurTrial">
+        <property name="text">
+         <string>Current Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="11" column="1" colspan="2">
+       <widget class="QComboBox" name="comboTargetTrial"/>
+      </item>
+      <item row="4" column="2">
+       <widget class="QTextEdit" name="textPrevTrial">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="2">
+       <widget class="QTextEdit" name="textCurTrial">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -254,11 +279,6 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>qMRMLNodeComboBox</class>
-   <extends>QWidget</extends>
-   <header>qMRMLNodeComboBox.h</header>
-  </customwidget>
-  <customwidget>
    <class>qMRMLWidget</class>
    <extends>QWidget</extends>
    <header>qMRMLWidget.h</header>
@@ -266,38 +286,5 @@
   </customwidget>
  </customwidgets>
  <resources/>
- <connections>
-  <connection>
-   <sender>ControlRoom</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>comboSubjectAcr</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>192</x>
-     <y>411</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>238</x>
-     <y>110</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>ControlRoom</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>comboTargetTrial</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>192</x>
-     <y>411</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>224</x>
-     <y>695</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

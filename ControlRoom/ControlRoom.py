@@ -21,6 +21,8 @@ SOFTWARE.
 
 import logging
 import os
+import json
+import random
 
 import vtk
 
@@ -93,7 +95,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
-        self.logic = ControlRoomLogic()
+        self.logic = ControlRoomLogic(self.resourcePath('Configs/'))
 
         # Connections
 
@@ -103,17 +105,18 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
         # (in the selected parameter node).
-        self.ui.comboSubjectAcr.connect("currentNodeChanged(vtkMRMLTextNode*)", self.updateParameterNodeFromGUI)
-        self.ui.comboTargetTrial.connect("currentNodeChanged(vtkMRMLTextNode*)", self.updateParameterNodeFromGUI)
+        self.ui.comboSubjectAcr.connect("currentIndexChanged(int)", self.onComboSubjectAcr)
+        self.ui.comboTargetTrial.connect("currentIndexChanged(int)", self.onComboTargetTrial)
 
         # Buttons
-        self.ui.pushInit.connect('clicked(bool)', self.onPushInit)
+        self.ui.pushAddSubj.connect('clicked(bool)', self.onPushAddSubj)
         self.ui.pushRandSeq.connect('clicked(bool)', self.onPushRandSeq)
+        self.ui.pushRetrieveSeq.connect('clicked(bool)', self.onPushRetrieveSeq)
         self.ui.pushApplySeq.connect('clicked(bool)', self.onPushApplySeq)
         self.ui.pushStartVis.connect('clicked(bool)', self.onPushStartVis)
         self.ui.pushStopVis.connect('clicked(bool)', self.onPushStopVis)
-        self.ui.pushStartAll.connect('clicked(bool)', self.onPushStartAll)
         self.ui.pushPause.connect('clicked(bool)', self.onPushPause)
+        self.ui.pushResume.connect('clicked(bool)', self.onPushResume)
         self.ui.pushStop.connect('clicked(bool)', self.onPushStop)
         self.ui.pushPrevTrial.connect('clicked(bool)', self.onPushPrevTrial)
         self.ui.pushStopCurTrial.connect('clicked(bool)', self.onPushStopCurTrial)
@@ -121,10 +124,13 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.pushTargetTrial.connect('clicked(bool)', self.onPushTargetTrial)
 
         # Text
-        self.ui.textSessionSeq('textChanged(QString)', self.onTextSessionSeq)
+        self.ui.textSessionSeq.connect('textChanged()', self.onTextSessionSeq)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
+
+        for i in self.logic._subjectAcrList:
+            self.ui.comboSubjectAcr.addItem(i)
 
     def cleanup(self):
         """
@@ -196,39 +202,37 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         This method is called whenever parameter node is changed.
         The module GUI is updated to show the current state of the parameter node.
         """
-
+        
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
 
         # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
         self._updatingGUIFromParameterNode = True
-
-        # Update node selectors and sliders
-        self.ui.comboSubjectAcr.setCurrentNode(self._parameterNode.GetNodeReference("SubjectAcr"))
-        self.ui.comboTargetTrial.setCurrentNode(self._parameterNode.GetNodeReference("TargetTrial"))
         
         # Update buttons states and tooltips
-        if self._parameterNode.GetParameter("Initialized") == "true":
-            self.ui.pushInit.toolTip = "Click to reinitialize"
-            self.ui.comboSubjectAcr.enabled = True
-        else:
-            self.ui.pushInit.toolTip = "Click to initialize"
-            self.ui.comboSubjectAcr.enabled = False
-            self.ui.comboSubjectAcr.ToolTip = "Initialize first!"
 
-        if self._parameterNode.GetNodeReference("SubjectAcr"):
-            self.ui.pushRandSeq.enabled = True
-            self.ui.pushRandSeq.ToolTip = "Click to generate a random sequence"
-        else:
-            self.ui.pushRandSeq.enabled = False
-            self.ui.pushRandSeq.ToolTip = "Choose a subject first"
-
-        if not self._parameterNode.GetParameter("SessionSeq"):
-            self.ui.pushApplySeq.enabled = False
-            self.ui.pushApplySeq.toolTip = "Session Sequence is not set"
+        if self._parameterNode.GetParameter("SessionSeqTempDisplay") == \
+            self._parameterNode.GetParameter("SessionSeq"):
+                self.ui.pushApplySeq.enabled = False
+                self.ui.pushApplySeq.toolTip = "No changes made"
         else:
             self.ui.pushApplySeq.enabled = True
             self.ui.pushApplySeq.toolTip = "Click to set sequence"
+
+        if not self._parameterNode.GetParameter("SessionSeqTempDisplay"):
+            self.ui.pushApplySeq.enabled = False
+            self.ui.pushApplySeq.toolTip = "Session Sequence is not set"
+
+        if not self._parameterNode.GetParameter("SessionSeq"):
+            self.ui.pushRetrieveSeq.enabled = False
+            self.ui.pushRetrieveSeq.toolTip = "Session Sequence is not set"
+            self.ui.comboTargetTrial.enabled = False
+            self.ui.comboTargetTrial.toolTip = "Session Sequence is not set"
+        else:
+            self.ui.pushRetrieveSeq.enabled = True
+            self.ui.pushRetrieveSeq.toolTip = "Click to retrieved currently applied sequence"
+            self.ui.comboTargetTrial.enabled = True
+            self.ui.comboTargetTrial.toolTip = "pick a trial"
 
         if self._parameterNode.GetParameter("Visualization") == "true":
             self.ui.pushStartVis.enabled = False
@@ -241,12 +245,61 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.pushStopVis.enabled = False
             self.ui.pushStopVis.toolTip = "Visualization not started"
 
-        if self._parameterNode.GetNodeReference("InputVolume") and self._parameterNode.GetNodeReference("OutputVolume"):
-            self.ui.applyButton.toolTip = "Compute output volume"
-            self.ui.applyButton.enabled = True
+        if not self._parameterNode.GetParameter("CurTrial"):
+            self.ui.pushResume.enabled = False
+            self.ui.pushResume.toolTip = "Current trial not set"
+            self.ui.pushCurTrial.enabled = False
+            self.ui.pushCurTrial.toolTip = "Current trial not set"
         else:
-            self.ui.applyButton.toolTip = "Select input and output volume nodes"
-            self.ui.applyButton.enabled = False
+            self.ui.pushResume.enabled = True
+            self.ui.pushResume.toolTip = "Click to resume"
+            self.ui.pushCurTrial.enabled = True
+            self.ui.pushCurTrial.toolTip = "Current run current trial"
+            self.ui.textCurTrial.setPlainText(self._parameterNode.GetParameter("CurTrial"))
+        
+        if not self._parameterNode.GetParameter("PrevTrial"):
+            self.ui.pushPrevTrial.enabled = False
+            self.ui.pushPrevTrial.toolTip = "Previous trial not set"
+        else:
+            self.ui.pushPrevTrial.enabled = True
+            self.ui.pushPrevTrial.toolTip = "Current run previous trial"
+            self.ui.textPrevTrial.setPlainText(self._parameterNode.GetParameter("PrevTrial"))
+
+        if self._parameterNode.GetParameter("RunningATrial") == "true":
+            self.ui.pushPause.enabled = True
+            self.ui.pushPause.toolTip = "Click to pause"
+            self.ui.pushResume.enabled = False
+            self.ui.pushResume.toolTip = "Running"
+            self.ui.pushStop.enabled = True
+            self.ui.pushStop.toolTip = "Click to stop all"
+            self.ui.pushPrevTrial.enabled = False
+            self.ui.pushPrevTrial.toolTip = "Running"
+            self.ui.pushStopCurTrial.enabled = True
+            self.ui.pushStopCurTrial.toolTip = "Click to stop current trial"
+            self.ui.pushCurTrial.enabled = False
+            self.ui.pushCurTrial.toolTip = "Running"
+            self.ui.pushTargetTrial.enabled = False
+            self.ui.pushTargetTrial.toolTip = "Running"
+        else:
+            self.ui.pushPause.enabled = False
+            self.ui.pushPause.toolTip = "Not running"
+            self.ui.pushResume.enabled = True
+            self.ui.pushResume.toolTip = "Click to resume"
+            self.ui.pushStop.enabled = False
+            self.ui.pushStop.toolTip = "Not running"
+            self.ui.pushPrevTrial.enabled = True
+            self.ui.pushPrevTrial.toolTip = "Click to do previous trial"
+            self.ui.pushStopCurTrial.enabled = False
+            self.ui.pushStopCurTrial.toolTip = "Not running"
+            self.ui.pushCurTrial.enabled = True
+            self.ui.pushCurTrial.toolTip = "Do current trial"
+            if self._parameterNode.GetParameter("TargetTrial"):
+                self.ui.pushTargetTrial.enabled = True
+                self.ui.pushTargetTrial.toolTip = "Click to perform target trial"
+            else:
+                self.ui.pushTargetTrial.enabled = False
+                self.ui.pushTargetTrial.toolTip = "Pick a target trial first"
+            
 
         # All the GUI updates are done
         self._updatingGUIFromParameterNode = False
@@ -261,30 +314,85 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
+        
+        self._parameterNode.SetParameter("SubjectAcr", self.ui.comboSubjectAcr.currentText)
 
-        self._parameterNode.SetNodeReferenceID("InputVolume", self.ui.inputSelector.currentNodeID)
-        self._parameterNode.SetNodeReferenceID("OutputVolume", self.ui.outputSelector.currentNodeID)
-        self._parameterNode.SetParameter("Threshold", str(self.ui.imageThresholdSliderWidget.value))
-        self._parameterNode.SetParameter("Invert", "true" if self.ui.invertOutputCheckBox.checked else "false")
-        self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.ui.invertedOutputSelector.currentNodeID)
+        self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
 
         self._parameterNode.EndModify(wasModified)
 
-    def onApplyButton(self):
-        """
-        Run processing when user clicks "Apply" button.
-        """
-        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+    def onPushAddSubj(self):
+        self.ui.comboSubjectAcr.clear()
+        acr = self.ui.textAddSubj.text
+        self.logic.processAddSubject(acr)
+        for i in self.logic._subjectAcrList:
+            self.ui.comboSubjectAcr.addItem(i)
+        self.ui.comboSubjectAcr.setCurrentIndex(self.ui.comboSubjectAcr.count-1)
 
-            # Compute output
-            self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(),
-                               self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
+    def onComboSubjectAcr(self, i):
+        self._parameterNode.SetParameter("SubjectAcr", self.ui.comboSubjectAcr.currentText) 
+        
+    def onPushRandSeq(self):
+        # see orders.png for more information
 
-            # Compute inverted output (if needed)
-            if self.ui.invertedOutputSelector.currentNode():
-                # If additional output volume is selected then result with inverted threshold is written there
-                self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
-                                   self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
+        res = self.logic.processRandSeq()
+        res[0].extend(res[1])
+        res[0].extend(res[2])
+        res = res[0]
+        
+        sessionSeqTempDisplay = ""
+        for i in res:
+            sessionSeqTempDisplay = sessionSeqTempDisplay + i + "\n"
+
+        self._parameterNode.SetParameter("SessionSeqTempDisplay", sessionSeqTempDisplay)
+        self.ui.textSessionSeq.setPlainText(self._parameterNode.GetParameter("SessionSeqTempDisplay")) 
+        
+    def onTextSessionSeq(self):
+        self._parameterNode.SetParameter("SessionSeqTempDisplay", self.ui.textSessionSeq.plainText)
+    
+    def onPushRetrieveSeq(self):
+        self.ui.textSessionSeq.setPlainText(self._parameterNode.GetParameter("SessionSeq")) 
+
+    def onPushApplySeq(self):
+        text = self._parameterNode.GetParameter("SessionSeqTempDisplay")
+        if self.logic.processSeqTextCheck(text):
+            self._parameterNode.SetParameter("SessionSeq", text)
+        self._parameterNode.SetParameter("CurTrial", text.strip().split("\n")[0])
+        self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+        
+    def onPushStartVis(self):
+        self._parameterNode.SetParameter("Visualization", "true")
+
+    def onPushStopVis(self):
+        self._parameterNode.SetParameter("Visualization", "false")
+        
+    def onPushPause(self):
+        return
+        
+    def onPushResume(self):
+        return
+        
+    def onPushStop(self):
+        return
+        
+    def onPushPrevTrial(self):
+        return
+        
+    def onPushStopCurTrial(self):
+        return
+        
+    def onPushCurTrial(self):
+        return
+
+    def onComboTargetTrial(self, i):
+        self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText) 
+        self.updateGUIFromParameterNode()
+    
+    def onPushTargetTrial(self):
+        return
+        
+    # self._parameterNode.SetParameter("RunningATrial", "true")
+    # self._parameterNode.SetParameter("RunningATrial", "false")
 
 
 #
@@ -301,17 +409,82 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
     https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
     """
 
-    def __init__(self):
+    def __init__(self, configPath):
         """
         Called when the logic class is instantiated. Can be used for initializing member variables.
         """
         ScriptedLoadableModuleLogic.__init__(self)
+        self._configPath = configPath
+        self.initializeModule()
 
     def setDefaultParameters(self, parameterNode):
         """
         Initialize parameter node with default settings.
         """
-        if not parameterNode.GetParameter("Threshold"):
-            parameterNode.SetParameter("Threshold", "100.0")
-        if not parameterNode.GetParameter("Invert"):
-            parameterNode.SetParameter("Invert", "false")
+        if not parameterNode.GetParameter("RunningATrial"):
+            parameterNode.SetParameter("RunningATrial", "false")
+        if not parameterNode.GetParameter("Visualization"):
+            parameterNode.SetParameter("Visualization", "false")
+            
+    def initializeModule(self):
+        with open(self._configPath + "SubjectConfig.json") as f:
+            self._subjectConfig = json.load(f)
+        self._subjectAcrList = []
+        self._subjectNumList = []
+        for i in self._subjectConfig.keys():
+            self._subjectAcrList.append(self._subjectConfig[i]["acronym"]+"_"+i) 
+            self._subjectNumList.append(int(i))
+    
+    def processAddSubject(self, acr):
+        subjectNum = max(self._subjectNumList)+1
+        self._subjectAcrList.append(acr + "_" + str(subjectNum))
+        self._subjectNumList.append(subjectNum)
+        newSubject = {str(subjectNum): {"acronym": acr, "experiments": []}}
+        self._subjectConfig.update(newSubject)
+        with open(self._configPath + "SubjectConfig.json", "w") as f:
+            json.dump(self._subjectConfig, f, indent=4)
+    
+    def processRandSeq(self):
+        vpb = ["VPB-hfree", "VPB-hfixed"]
+        random.shuffle(vpb)
+
+        vpc = ["VPC-L", "VPC-R", "VPC-U", "VPC-D"]
+        vpc.extend(random.sample(set(vpc), 2))
+        random.shuffle(vpc)
+
+        vpm = ["VPM-2", "VPM-4", "VPM-6", "VPM-8", "VPM-12", "VPM-24"]
+        random.shuffle(vpm)
+        def randDir(sess):
+            arr = [sess+"-L", sess+"-R", sess+"-U", sess+"-D"]
+            arr.extend(random.sample(set(arr), 2))
+            random.shuffle(arr)
+            return arr
+        tempvpm = []
+        for i in range(len(vpm)):
+            tempvpm.extend(randDir(vpm[i]))
+        vpm = tempvpm
+        
+        res = [vpb, vpc, vpm]
+        random.shuffle(res)
+        return res
+
+    def processSeqTextCheck(self, text):
+        res = text.strip().split("\n")
+        saved = ['VPM-2-L', 'VPM-2-U', 'VPM-2-R', 'VPM-2-U', 'VPM-2-D', 'VPM-2-R', 
+            'VPM-4-L', 'VPM-4-U', 'VPM-4-R', 'VPM-4-L', 'VPM-4-D', 'VPM-4-D', 
+            'VPM-12-U', 'VPM-12-R', 'VPM-12-U', 'VPM-12-L', 'VPM-12-R', 'VPM-12-D', 
+            'VPM-6-U', 'VPM-6-L', 'VPM-6-D', 'VPM-6-D', 'VPM-6-R', 'VPM-6-L', 
+            'VPM-24-U', 'VPM-24-R', 'VPM-24-R', 'VPM-24-D', 'VPM-24-L', 'VPM-24-L', 
+            'VPM-8-D', 'VPM-8-L', 'VPM-8-R', 'VPM-8-D', 'VPM-8-U', 'VPM-8-U', 
+            'VPC-U', 'VPC-D', 'VPC-R', 'VPC-L', 'VPC-U', 'VPC-R', 
+            'VPB-hfixed', 'VPB-hfree']
+        if len(res) != len(saved):
+            slicer.util.errorDisplay("The sequence does not pass!")
+            return
+        while not res:
+            i = res.pop[0]
+            if i not in saved:
+                slicer.util.errorDisplay("The sequence does not pass!")
+                return
+            saved.remove(i)
+        return True

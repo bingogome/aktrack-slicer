@@ -1,0 +1,22 @@
+{
+    "21": {
+        "acronym": "TESTSUB1",
+        "experiments": [
+            {
+                "date": "11052022",
+                "time": "1728",
+                "sequence": []
+            }
+        ]
+    },
+    "22": {
+        "acronym": "TESTSUB2",
+        "experiments": [
+            {
+                "date": "11052022",
+                "time": "1728",
+                "sequence": []
+            }
+        ]
+    }
+}

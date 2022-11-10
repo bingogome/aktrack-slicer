@@ -341,7 +341,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         text = self._parameterNode.GetParameter("SessionSeqTempDisplay")
         if self.logic.processSeqTextCheck(text):
             self._parameterNode.SetParameter("SessionSeq", text)
-        self.logic.processApplySeq(text)
+        exp = self.logic.processApplySeq(text)
+        self.ui.comboTargetTrial.clear()
+        for i in exp:
+            self.ui.comboTargetTrial.addItem(i)
+        self.ui.comboSubjectAcr.setCurrentIndex(0)
         
     def onPushStartVis(self):
         self._parameterNode.SetParameter("Visualization", "true")
@@ -350,12 +354,16 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("Visualization", "false")
         
     def onPushPrevTrial(self):
+        # self._parameterNode.SetParameter("RunningATrial", "true")
         return
         
     def onPushStopCurTrial(self):
+        # self._parameterNode.SetParameter("RunningATrial", "false")
         return
         
     def onPushCurTrial(self):
+        # self._parameterNode.SetParameter("RunningATrial", "true")
+        # self._parameterNode.SetParameter("RunningATrial", "false")
         return
 
     def onComboTargetTrial(self, i):
@@ -363,10 +371,9 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.updateGUIFromParameterNode()
     
     def onPushTargetTrial(self):
+        # self._parameterNode.SetParameter("RunningATrial", "true")
+        # self._parameterNode.SetParameter("RunningATrial", "false")
         return
-        
-    # self._parameterNode.SetParameter("RunningATrial", "true")
-    # self._parameterNode.SetParameter("RunningATrial", "false")
 
 
 #
@@ -476,3 +483,4 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         with open(self._configPath + "SubjectConfig.json", "w") as f:
             json.dump(self._subjectConfig, f, indent=4)
         self._parameterNode.SetParameter("ExperimentTimeStamp", timestamp)
+        return exp

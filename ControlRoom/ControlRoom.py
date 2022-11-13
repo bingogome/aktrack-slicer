@@ -360,7 +360,6 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def onComboTargetTrial(self, i):
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText) 
-        self.updateGUIFromParameterNode()
     
     def onPushTargetTrial(self):
         return

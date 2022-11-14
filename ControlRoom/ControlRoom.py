@@ -24,6 +24,7 @@ import os
 import json
 import random
 from datetime import datetime
+from ControlRoomLib.UtilConnectionsWtNnBlcRcv import UtilConnectionsWtNnBlcRcv
 
 import vtk
 
@@ -124,7 +125,10 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.pushCurTrial.connect('clicked(bool)', self.onPushCurTrial)
         self.ui.pushTargetTrial.connect('clicked(bool)', self.onPushTargetTrial)
 
+        self.ui.pushConnect.connect('clicked(bool)', self.onPushConnect)
+
         # Text
+        self.ui.textIPPort.connect('textChanged()', self.onTextIPPort)
         self.ui.textSessionSeq.connect('textChanged()', self.onTextSessionSeq)
 
         # Make sure parameter node is initialized (needed for module reload)
@@ -176,6 +180,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # so that when the scene is saved and reloaded, these settings are restored.
 
         self.setParameterNode(self.logic.getParameterNode())
+        self.ui.textIPPort.setPlainText(self._parameterNode.GetParameter("TerminalIPPort")) 
 
     def setParameterNode(self, inputParameterNode):
         """
@@ -308,6 +313,12 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self._parameterNode.EndModify(wasModified)
 
+    def onTextIPPort(self):
+        self._parameterNode.SetParameter("TerminalIPPort", self.ui.textIPPort.plainText)
+
+    def onPushConnect(self):
+        self.logic.processConnectTerminal()
+
     def onPushAddSubj(self):
         self.ui.comboSubjectAcr.clear()
         acr = self.ui.textAddSubj.text
@@ -433,6 +444,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         ScriptedLoadableModuleLogic.__init__(self)
         self._configPath = configPath
         self.initializeModule()
+        self._connections = None
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -448,6 +460,26 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("ExperimentTimeStamp", self.ui.comboExpTime.currentText) 
         if not parameterNode.GetParameter("TargetTrial"):
             parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
+        if not parameterNode.GetParameter("TerminalIPPort"):
+            parameterNode.SetParameter("TerminalIPPort","127.0.0.1:8093\n127.0.0.1:8052\n127.0.0.1:8077\n")
+
+    def processConnectTerminal(self):
+        terminalIPPort = self._parameterNode.GetParameter("TerminalIPPort")
+        ipPortArr = terminalIPPort.strip().split("\n")
+        sock_ip_receive_nnblc = ipPortArr[2].split(":")[0]
+        sock_port_receive_nnblc = int(ipPortArr[2].split(":")[1])
+        packetInterval = 8 # wait time of the singleShot function (msec)
+        sock_ip_receive = ipPortArr[1].split(":")[0]
+        sock_port_receive = int(ipPortArr[1].split(":")[1])
+        sock_ip_send = ipPortArr[0].split(":")[0]
+        sock_port_send = int(ipPortArr[0].split(":")[1])
+
+        self._connections = ControlRoomConnections(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+            sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+        self._connections.setup()
+        self._connections._flag_receiving_nnblc = True
+        self._connections.receiveTimerCallBack()
+        self._connections._parameterNode = self._parameterNode
             
     def initializeModule(self):
         with open(self._configPath + "SubjectConfig.json") as f:
@@ -547,3 +579,37 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             json.dump(self._subjectConfig, f, indent=4)
         
         return exp
+
+class ControlRoomConnections(UtilConnectionsWtNnBlcRcv):
+
+    def __init__(self, sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+            sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send):
+        super().__init__(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+            sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+
+    def setup(self):
+        super().setup()
+        self._jsondata = None
+
+    def handleReceivedData(self):
+        """
+        Override the parent class function
+        """
+        func = self.utilMsgParse()
+        func()
+
+    def utilMsgParse(self):
+        """
+        """
+        data = self._data_buff.decode("UTF-8")
+        self._jsondata = json.loads(data)
+        if self._jsondata["commandtype"] == "test":
+            return self.utilTestCallBack
+
+    def utilTestCallBack(self):
+        """
+        """
+        print("test")
+    
+        
+        

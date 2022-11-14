@@ -402,25 +402,39 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode.GetParameter("PrevTrial"):
             if self._parameterNode.GetParameter("PrevTrial") == "__NONE__":
                 return
-            # else:
-                
-        
+            else:
+                comm = {"commandtype":"trialcommand", \
+                    "commandcontent":self._parameterNode.GetParameter("PrevTrial")}
+                comm_out = json.dumps(comm)
+                self.logic._connections.utilSendCommand(comm_out)
+
     def onPushStopCurTrial(self):
-        # self._parameterNode.SetParameter("RunningATrial", "false")
-        return
+        comm = {"commandtype":"trialstopcommand", \
+            "commandcontent":""}
+        comm_out = json.dumps(comm)
+        self.logic._connections.utilSendCommand(comm_out)
         
     def onPushCurTrial(self):
-        # self._parameterNode.SetParameter("RunningATrial", "true")
-        # self._parameterNode.SetParameter("RunningATrial", "false")
-        return
+        self._parameterNode.SetParameter("RunningATrial", "true")
+        if self._parameterNode.GetParameter("CurTrial"):
+            if self._parameterNode.GetParameter("CurTrial") == "__NONE__":
+                return
+            else:
+                comm = {"commandtype":"trialcommand", \
+                    "commandcontent":self._parameterNode.GetParameter("CurTrial")}
+                comm_out = json.dumps(comm)
+                self.logic._connections.utilSendCommand(comm_out)
 
     def onComboTargetTrial(self, i=None):
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText) 
     
     def onPushTargetTrial(self):
-        # self._parameterNode.SetParameter("RunningATrial", "true")
-        # self._parameterNode.SetParameter("RunningATrial", "false")
-        return
+        self._parameterNode.SetParameter("RunningATrial", "true")
+        if self._parameterNode.GetParameter("TargetTrial"):
+            comm = {"commandtype":"trialcommand", \
+                "commandcontent":self._parameterNode.GetParameter("TargetTrial")}
+            comm_out = json.dumps(comm)
+            self.logic._connections.utilSendCommand(comm_out)
 
 
 #
@@ -461,7 +475,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         if not parameterNode.GetParameter("TargetTrial"):
             parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
         if not parameterNode.GetParameter("TerminalIPPort"):
-            parameterNode.SetParameter("TerminalIPPort","127.0.0.1:8093\n127.0.0.1:8052\n127.0.0.1:8077\n")
+            parameterNode.SetParameter("TerminalIPPort","127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n")
 
     def processConnectTerminal(self):
         terminalIPPort = self._parameterNode.GetParameter("TerminalIPPort")
@@ -566,6 +580,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
                         json.dump(self._subjectConfig, f, indent=4)
                     self._parameterNode.SetParameter("CurTrial", exp[0])
                     self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+                    self._parameterNode.SetParameter("TrialIndex", "0")
                     return exp
                 else:
                     return None
@@ -573,6 +588,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             return None
         self._parameterNode.SetParameter("CurTrial", exp[0])
         self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+        self._parameterNode.SetParameter("TrialIndex", "0")
         exparr.append({"datetime": self._parameterNode.GetParameter("ExperimentTimeStamp"), "sequence": exp})
         subj["experiments"] = exparr
         with open(self._configPath + "SubjectConfig.json", "w") as f:
@@ -605,11 +621,31 @@ class ControlRoomConnections(UtilConnectionsWtNnBlcRcv):
         self._jsondata = json.loads(data)
         if self._jsondata["commandtype"] == "test":
             return self.utilTestCallBack
+        if self._jsondata["commandtype"] == "trialStop":
+            return self.utilTrialStopped
 
     def utilTestCallBack(self):
         """
         """
         print("test")
-    
+
+    def utilTrialStopped(self):
+        
+        self._parameterNode.SetParameter("RunningATrial", "false")
+        msg = self._jsondata["commandcontent"]
+        if msg == "trialcomplete":
+            sessionSeq = self._parameterNode.GetParameter("SessionSeq").strip().split("\n")
+            sessionSeq = ["__NONE__"] + sessionSeq + ["__NONE__"]
+            self._parameterNode.SetParameter("TrialIndex", \
+                str(int(self._parameterNode.GetParameter("TrialIndex"))+1))
+            self._parameterNode.SetParameter("PrevTrial", \
+                sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))])
+            self._parameterNode.SetParameter("CurTrial", \
+                sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
+        if msg == "trialstop":
+            return
+        if msg == "targettrialcomplete":
+            return
+
         
         

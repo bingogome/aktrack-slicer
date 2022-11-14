@@ -97,6 +97,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
         self.logic = ControlRoomLogic(self.resourcePath('Configs/'))
+        self.logic.ui = self.ui
 
         # Connections
 
@@ -107,10 +108,12 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
         # (in the selected parameter node).
         self.ui.comboSubjectAcr.connect("currentIndexChanged(int)", self.onComboSubjectAcr)
+        self.ui.comboExpTime.connect("currentIndexChanged(int)", self.onComboExpTime)
         self.ui.comboTargetTrial.connect("currentIndexChanged(int)", self.onComboTargetTrial)
 
         # Buttons
         self.ui.pushAddSubj.connect('clicked(bool)', self.onPushAddSubj)
+        self.ui.pushStartAnExp.connect('clicked(bool)', self.onPushStartAnExp)
         self.ui.pushRandSeq.connect('clicked(bool)', self.onPushRandSeq)
         self.ui.pushRetrieveSeq.connect('clicked(bool)', self.onPushRetrieveSeq)
         self.ui.pushApplySeq.connect('clicked(bool)', self.onPushApplySeq)
@@ -209,6 +212,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         # Update buttons states and tooltips
 
+        self.ui.pushRetrieveSeq.toolTip = "Click to retrieve currently applied sequence"
+
         if self._parameterNode.GetParameter("SessionSeqTempDisplay") == \
             self._parameterNode.GetParameter("SessionSeq"):
                 self.ui.pushApplySeq.enabled = False
@@ -222,13 +227,9 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.pushApplySeq.toolTip = "Session Sequence is not set"
 
         if not self._parameterNode.GetParameter("SessionSeq"):
-            self.ui.pushRetrieveSeq.enabled = False
-            self.ui.pushRetrieveSeq.toolTip = "Session Sequence is not set"
             self.ui.comboTargetTrial.enabled = False
             self.ui.comboTargetTrial.toolTip = "Session Sequence is not set"
         else:
-            self.ui.pushRetrieveSeq.enabled = True
-            self.ui.pushRetrieveSeq.toolTip = "Click to retrieved currently applied sequence"
             self.ui.comboTargetTrial.enabled = True
             self.ui.comboTargetTrial.toolTip = "pick a trial"
 
@@ -301,6 +302,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         self._parameterNode.SetParameter("SubjectAcr", self.ui.comboSubjectAcr.currentText)
 
+        self._parameterNode.SetParameter("ExperimentTimeStamp", self.ui.comboExpTime.currentText) 
+
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
 
         self._parameterNode.EndModify(wasModified)
@@ -313,9 +316,34 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.ui.comboSubjectAcr.addItem(i)
         self.ui.comboSubjectAcr.setCurrentIndex(self.ui.comboSubjectAcr.count-1)
 
-    def onComboSubjectAcr(self, i):
+    def onComboSubjectAcr(self, i=None):
         self._parameterNode.SetParameter("SubjectAcr", self.ui.comboSubjectAcr.currentText) 
-        
+        self.ui.comboExpTime.clear()
+        if self._parameterNode.GetParameter("SubjectAcr"):
+            subj = self.logic._subjectConfig[self._parameterNode.GetParameter("SubjectAcr").split("_")[1]]
+            exparr = subj["experiments"]
+            for e in exparr:
+                self.ui.comboExpTime.addItem(e["datetime"])
+
+    def onComboExpTime(self,i=None):
+        self._parameterNode.SetParameter("ExperimentTimeStamp", self.ui.comboExpTime.currentText) 
+        if self._parameterNode.GetParameter("SubjectAcr"):
+            subj = self.logic._subjectConfig[self._parameterNode.GetParameter("SubjectAcr").split("_")[1]]
+            exparr = subj["experiments"]
+            self.onPushRetrieveSeq()
+            self.ui.comboTargetTrial.clear()
+            for e in exparr:
+                if e["datetime"] == self.ui.comboExpTime.currentText:
+                    for ee in e["sequence"]:
+                        self.ui.comboTargetTrial.addItem(ee)
+
+    def onPushStartAnExp(self):
+        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
+        self.logic.processStartAnExp(timestamp)
+        self._parameterNode.SetParameter("ExperimentTimeStamp", timestamp)
+        self.onComboSubjectAcr()
+        self.ui.comboExpTime.setCurrentIndex(self.ui.comboExpTime.count-1)
+
     def onPushRandSeq(self):
         # see orders.png for more information
 
@@ -335,17 +363,22 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("SessionSeqTempDisplay", self.ui.textSessionSeq.plainText)
     
     def onPushRetrieveSeq(self):
-        self.ui.textSessionSeq.setPlainText(self._parameterNode.GetParameter("SessionSeq")) 
+        subj = self.logic._subjectConfig[self._parameterNode.GetParameter("SubjectAcr").split("_")[1]]
+        exparr = subj["experiments"]
+        for e in exparr:
+            if e["datetime"] == self.ui.comboExpTime.currentText:
+                self.ui.textSessionSeq.setPlainText('\n'.join(e["sequence"])) 
+                self._parameterNode.SetParameter("SessionSeq", self._parameterNode.GetParameter("SessionSeqTempDisplay"))
 
     def onPushApplySeq(self):
         text = self._parameterNode.GetParameter("SessionSeqTempDisplay")
         if self.logic.processSeqTextCheck(text):
-            self._parameterNode.SetParameter("SessionSeq", text)
-        exp = self.logic.processApplySeq(text)
-        self.ui.comboTargetTrial.clear()
-        for i in exp:
-            self.ui.comboTargetTrial.addItem(i)
-        self.ui.comboSubjectAcr.setCurrentIndex(0)
+            exp = self.logic.processApplySeq(text)
+            if exp:
+                self._parameterNode.SetParameter("SessionSeq", text)
+                self.ui.comboTargetTrial.clear()
+                for i in exp:
+                    self.ui.comboTargetTrial.addItem(i)
         
     def onPushStartVis(self):
         self._parameterNode.SetParameter("Visualization", "true")
@@ -354,8 +387,12 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("Visualization", "false")
         
     def onPushPrevTrial(self):
-        # self._parameterNode.SetParameter("RunningATrial", "true")
-        return
+        self._parameterNode.SetParameter("RunningATrial", "true")
+        if self._parameterNode.GetParameter("PrevTrial"):
+            if self._parameterNode.GetParameter("PrevTrial") == "__NONE__":
+                return
+            # else:
+                
         
     def onPushStopCurTrial(self):
         # self._parameterNode.SetParameter("RunningATrial", "false")
@@ -366,7 +403,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # self._parameterNode.SetParameter("RunningATrial", "false")
         return
 
-    def onComboTargetTrial(self, i):
+    def onComboTargetTrial(self, i=None):
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText) 
     
     def onPushTargetTrial(self):
@@ -405,6 +442,12 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("RunningATrial", "false")
         if not parameterNode.GetParameter("Visualization"):
             parameterNode.SetParameter("Visualization", "false")
+        if not parameterNode.GetParameter("SubjectAcr"):
+            parameterNode.SetParameter("SubjectAcr", self.ui.comboSubjectAcr.currentText)
+        if not parameterNode.GetParameter("ExperimentTimeStamp"):
+            parameterNode.SetParameter("ExperimentTimeStamp", self.ui.comboExpTime.currentText) 
+        if not parameterNode.GetParameter("TargetTrial"):
+            parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
             
     def initializeModule(self):
         with open(self._configPath + "SubjectConfig.json") as f:
@@ -422,6 +465,14 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         self._subjectNumList.append(subjectNum)
         newSubject = {str(subjectNum): {"acronym": acr, "experiments": []}}
         self._subjectConfig.update(newSubject)
+        with open(self._configPath + "SubjectConfig.json", "w") as f:
+            json.dump(self._subjectConfig, f, indent=4)
+
+    def processStartAnExp(self, timestamp):
+        subj = self._subjectConfig[self._parameterNode.GetParameter("SubjectAcr").split("_")[1]]
+        exparr = subj["experiments"]
+        exparr.append({"datetime": timestamp, "sequence": []})
+        subj["experiments"] = exparr
         with open(self._configPath + "SubjectConfig.json", "w") as f:
             json.dump(self._subjectConfig, f, indent=4)
     
@@ -472,14 +523,27 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
 
     def processApplySeq(self, text):
         exp = text.strip().split("\n")
-        self._parameterNode.SetParameter("CurTrial", exp[0])
-        self._parameterNode.SetParameter("PrevTrial", "__NONE__")
         subj = self._subjectConfig[self._parameterNode.GetParameter("SubjectAcr").split("_")[1]]
         exparr = subj["experiments"]
-        timestamp = datetime.now().strftime("%m%d%Y%H%M%S")
-        exparr.append({"datetime": timestamp, "sequence": exp})
+        for i in exparr:
+            if self._parameterNode.GetParameter("ExperimentTimeStamp") == i["datetime"]:
+                if slicer.util.confirmYesNoDisplay("Override the previous sequence?"):
+                    i["sequence"] = exp
+                    subj["experiments"] = exparr
+                    with open(self._configPath + "SubjectConfig.json", "w") as f:
+                        json.dump(self._subjectConfig, f, indent=4)
+                    self._parameterNode.SetParameter("CurTrial", exp[0])
+                    self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+                    return exp
+                else:
+                    return None
+        if not self._parameterNode.GetParameter("ExperimentTimeStamp"):
+            return None
+        self._parameterNode.SetParameter("CurTrial", exp[0])
+        self._parameterNode.SetParameter("PrevTrial", "__NONE__")
+        exparr.append({"datetime": self._parameterNode.GetParameter("ExperimentTimeStamp"), "sequence": exp})
         subj["experiments"] = exparr
         with open(self._configPath + "SubjectConfig.json", "w") as f:
             json.dump(self._subjectConfig, f, indent=4)
-        self._parameterNode.SetParameter("ExperimentTimeStamp", timestamp)
+        
         return exp

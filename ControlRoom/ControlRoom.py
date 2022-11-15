@@ -630,7 +630,7 @@ class ControlRoomConnections(UtilConnectionsWtNnBlcRcv):
         print("test")
 
     def utilTrialStopped(self):
-        
+        print("Trial stopped")
         self._parameterNode.SetParameter("RunningATrial", "false")
         msg = self._jsondata["commandcontent"]
         if msg == "trialcomplete":

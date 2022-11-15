@@ -290,7 +290,6 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._parameterNode.GetParameter("PrevTrial"):
             self.ui.textPrevTrial.setPlainText(self._parameterNode.GetParameter("PrevTrial"))
             
-
         # All the GUI updates are done
         self._updatingGUIFromParameterNode = False
 
@@ -299,18 +298,12 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         This method is called when the user makes any change in the GUI.
         The changes are saved into the parameter node (so that they are restored when the scene is saved and loaded).
         """
-
         if self._parameterNode is None or self._updatingGUIFromParameterNode:
             return
-
         wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
-        
         self._parameterNode.SetParameter("SubjectAcr", self.ui.comboSubjectAcr.currentText)
-
         self._parameterNode.SetParameter("ExperimentTimeStamp", self.ui.comboExpTime.currentText) 
-
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
-
         self._parameterNode.EndModify(wasModified)
 
     def onTextIPPort(self):

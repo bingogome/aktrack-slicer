@@ -143,8 +143,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Called when the application closes and the module widget is destroyed.
         """
         self.removeObservers()
-        if self.logic._connections:
-            self.logic._connections.clear()
+        if self.logic._connections_screendot:
+            self.logic._connections_screendot.clear()
 
     def enter(self):
         """
@@ -399,19 +399,19 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._parameterNode.GetParameter("PrevTrial") == "__NONE__":
                 return
             else:
-                self._parameterNode.SetParameter("RunningATrial", "true")
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("PrevTrial")}
                 comm_out = json.dumps(comm)
-                self.logic._connections.utilSendCommand(comm_out)
-                self._timer_start = time.process_time()
+                self.logic._connections_screendot.utilSendCommand(comm_out)
+                self._parameterNode.SetParameter("RunningATrial", "true")
+                self._timer_start = datetime.now()
                 qt.QTimer.singleShot(19, self.AccuTimerCallBack)
 
     def onPushStopCurTrial(self):
         comm = {"commandtype":"trialstopcommand", \
             "commandcontent":""}
         comm_out = json.dumps(comm)
-        self.logic._connections.utilSendCommand(comm_out)
+        self.logic._connections_screendot.utilSendCommand(comm_out)
         
     def onPushCurTrial(self):
         
@@ -419,11 +419,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._parameterNode.GetParameter("CurTrial") == "__NONE__":
                 return
             else:
-                self._parameterNode.SetParameter("RunningATrial", "true")
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("CurTrial")}
                 comm_out = json.dumps(comm)
-                self.logic._connections.utilSendCommand(comm_out)
+                self.logic._connections_screendot.utilSendCommand(comm_out)
+                self._parameterNode.SetParameter("RunningATrial", "true")
                 self._timer_start = datetime.now()
                 qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
@@ -437,13 +437,16 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText) 
     
     def onPushTargetTrial(self):
-        self._parameterNode.SetParameter("RunningATrial", "true")
+        # Check if the name is valid
         if self._parameterNode.GetParameter("TargetTrial"):
+            # Send trial info to screen dot application
             comm = {"commandtype":"trialcommand", \
                 "commandcontent":self._parameterNode.GetParameter("TargetTrial")}
             comm_out = json.dumps(comm)
-            self.logic._connections.utilSendCommand(comm_out)
-
+            self.logic._connections_screendot.utilSendCommand(comm_out)
+            # Set the running flag
+            self._parameterNode.SetParameter("RunningATrial", "true")
+            # Update the "current trial" and "previous trial" identifiers
             sessionSeq = self._parameterNode.GetParameter("SessionSeq").strip().split("\n")
             sessionSeq = ["__NONE__"] + sessionSeq + ["__NONE__"]
             self._parameterNode.SetParameter("TrialIndex", \
@@ -452,6 +455,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))])
             self._parameterNode.SetParameter("CurTrial", \
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
+            # Set GUI timer
             self._timer_start = datetime.now()
             qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
@@ -477,7 +481,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         ScriptedLoadableModuleLogic.__init__(self)
         self._configPath = configPath
         self.initializeModule()
-        self._connections = None
+        self._connections_screendot = None
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -511,13 +515,13 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         sock_ip_send = ipPortArr[0].split(":")[0]
         sock_port_send = int(ipPortArr[0].split(":")[1])
 
-        if not self._connections:
-            self._connections = ControlRoomConnections(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+        if not self._connections_screendot:
+            self._connections_screendot = ControlRoomConnectionsScreenDot(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
                 sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
-            self._connections.setup()
-            self._connections._flag_receiving_nnblc = True
-            self._connections.receiveTimerCallBack()
-            self._connections._parameterNode = self._parameterNode
+            self._connections_screendot.setup()
+            self._connections_screendot._flag_receiving_nnblc = True
+            self._connections_screendot.receiveTimerCallBack()
+            self._connections_screendot._parameterNode = self._parameterNode
             
     def initializeModule(self):
         with open(self._configPath + "SubjectConfig.json") as f:
@@ -631,7 +635,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         
         return exp
 
-class ControlRoomConnections(UtilConnectionsWtNnBlcRcv):
+class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
 
     def __init__(self, sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
             sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send):
@@ -680,5 +684,33 @@ class ControlRoomConnections(UtilConnectionsWtNnBlcRcv):
         if msg == "trialstop":
             return
 
-        
-        
+class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
+
+    def __init__(self, sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+            sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send):
+        super().__init__(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+            sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+
+    def setup(self):
+        super().setup()
+        self._jsondata = None
+
+    def handleReceivedData(self):
+        """
+        Override the parent class function
+        """
+        func = self.utilMsgParse()
+        func()
+
+    def utilMsgParse(self):
+        """
+        """
+        data = self._data_buff.decode("UTF-8")
+        self._jsondata = json.loads(data)
+        if self._jsondata["commandtype"] == "test":
+            return self.utilTestCallBack
+
+    def utilTestCallBack(self):
+        """
+        """
+        print("test")

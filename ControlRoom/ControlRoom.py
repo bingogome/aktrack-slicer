@@ -22,8 +22,8 @@ SOFTWARE.
 import logging
 import os
 import json
-import random
-from datetime import datetime
+import random, qt, time
+from datetime import datetime, timedelta
 from ControlRoomLib.UtilConnectionsWtNnBlcRcv import UtilConnectionsWtNnBlcRcv
 
 import vtk
@@ -128,6 +128,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.pushConnect.connect('clicked(bool)', self.onPushConnect)
 
         # Text
+        self.ui.textTimer.setPlainText("Trial Duration Timer: 00:00:00.000000") 
         self.ui.textIPPort.connect('textChanged()', self.onTextIPPort)
         self.ui.textSessionSeq.connect('textChanged()', self.onTextSessionSeq)
 
@@ -142,6 +143,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         Called when the application closes and the module widget is destroyed.
         """
         self.removeObservers()
+        if self.logic._connections:
+            self.logic._connections.clear()
 
     def enter(self):
         """
@@ -391,15 +394,18 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("Visualization", "false")
         
     def onPushPrevTrial(self):
-        self._parameterNode.SetParameter("RunningATrial", "true")
+        
         if self._parameterNode.GetParameter("PrevTrial"):
             if self._parameterNode.GetParameter("PrevTrial") == "__NONE__":
                 return
             else:
+                self._parameterNode.SetParameter("RunningATrial", "true")
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("PrevTrial")}
                 comm_out = json.dumps(comm)
                 self.logic._connections.utilSendCommand(comm_out)
+                self._timer_start = time.process_time()
+                qt.QTimer.singleShot(19, self.AccuTimerCallBack)
 
     def onPushStopCurTrial(self):
         comm = {"commandtype":"trialstopcommand", \
@@ -408,16 +414,25 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic._connections.utilSendCommand(comm_out)
         
     def onPushCurTrial(self):
-        self._parameterNode.SetParameter("RunningATrial", "true")
+        
         if self._parameterNode.GetParameter("CurTrial"):
             if self._parameterNode.GetParameter("CurTrial") == "__NONE__":
                 return
             else:
+                self._parameterNode.SetParameter("RunningATrial", "true")
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("CurTrial")}
                 comm_out = json.dumps(comm)
                 self.logic._connections.utilSendCommand(comm_out)
+                self._timer_start = datetime.now()
+                qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
+    def AccuTimerCallBack(self):
+        if self._parameterNode.GetParameter("RunningATrial") == "true":
+            duration = (datetime.now() - self._timer_start).total_seconds()
+            self.ui.textTimer.setPlainText("Trial Duration Timer: "+str(timedelta(seconds=duration))) 
+            qt.QTimer.singleShot(329, self.AccuTimerCallBack)
+                
     def onComboTargetTrial(self, i=None):
         self._parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText) 
     
@@ -432,11 +447,13 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             sessionSeq = self._parameterNode.GetParameter("SessionSeq").strip().split("\n")
             sessionSeq = ["__NONE__"] + sessionSeq + ["__NONE__"]
             self._parameterNode.SetParameter("TrialIndex", \
-                str(self.ui.comboTargetTrial.currentIndex()))
+                str(self.ui.comboTargetTrial.currentIndex))
             self._parameterNode.SetParameter("PrevTrial", \
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))])
             self._parameterNode.SetParameter("CurTrial", \
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
+            self._timer_start = datetime.now()
+            qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
 
 #
@@ -478,6 +495,10 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
         if not parameterNode.GetParameter("TerminalIPPort"):
             parameterNode.SetParameter("TerminalIPPort","127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n")
+        if not parameterNode.GetParameter("CurTrial"):
+            parameterNode.SetParameter("CurTrial", "__NONE__")
+        if not parameterNode.GetParameter("PrevTrial"):
+            parameterNode.SetParameter("PrevTrial", "__NONE__")
 
     def processConnectTerminal(self):
         terminalIPPort = self._parameterNode.GetParameter("TerminalIPPort")
@@ -490,12 +511,13 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         sock_ip_send = ipPortArr[0].split(":")[0]
         sock_port_send = int(ipPortArr[0].split(":")[1])
 
-        self._connections = ControlRoomConnections(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
-            sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
-        self._connections.setup()
-        self._connections._flag_receiving_nnblc = True
-        self._connections.receiveTimerCallBack()
-        self._connections._parameterNode = self._parameterNode
+        if not self._connections:
+            self._connections = ControlRoomConnections(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+                sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+            self._connections.setup()
+            self._connections._flag_receiving_nnblc = True
+            self._connections.receiveTimerCallBack()
+            self._connections._parameterNode = self._parameterNode
             
     def initializeModule(self):
         with open(self._configPath + "SubjectConfig.json") as f:
@@ -550,23 +572,34 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
 
     def processSeqTextCheck(self, text):
         res = text.strip().split("\n")
-        saved = ['VPM-2-L', 'VPM-2-U', 'VPM-2-R', 'VPM-2-U', 'VPM-2-D', 'VPM-2-R', 
-            'VPM-4-L', 'VPM-4-U', 'VPM-4-R', 'VPM-4-L', 'VPM-4-D', 'VPM-4-D', 
-            'VPM-12-U', 'VPM-12-R', 'VPM-12-U', 'VPM-12-L', 'VPM-12-R', 'VPM-12-D', 
-            'VPM-6-U', 'VPM-6-L', 'VPM-6-D', 'VPM-6-D', 'VPM-6-R', 'VPM-6-L', 
-            'VPM-24-U', 'VPM-24-R', 'VPM-24-R', 'VPM-24-D', 'VPM-24-L', 'VPM-24-L', 
-            'VPM-8-D', 'VPM-8-L', 'VPM-8-R', 'VPM-8-D', 'VPM-8-U', 'VPM-8-U', 
-            'VPC-U', 'VPC-D', 'VPC-R', 'VPC-L', 'VPC-U', 'VPC-R', 
+        saved = ['VPM-2-L', 'VPM-2-U', 'VPM-2-R', 'VPM-2-D', \
+            'VPM-4-L', 'VPM-4-U', 'VPM-4-R', 'VPM-4-D', \
+            'VPM-12-U', 'VPM-12-R', 'VPM-12-L', 'VPM-12-D', \
+            'VPM-6-U', 'VPM-6-L', 'VPM-6-D', 'VPM-6-R', \
+            'VPM-24-U', 'VPM-24-R', 'VPM-24-D', 'VPM-24-L', \
+            'VPM-8-D', 'VPM-8-L', 'VPM-8-R', 'VPM-8-U', \
+            'VPC-U', 'VPC-D', 'VPC-R', 'VPC-L', \
             'VPB-hfixed', 'VPB-hfree']
-        if len(res) != len(saved):
-            slicer.util.errorDisplay("The sequence does not pass!")
+        saved_poped = []
+        if len(res) != len(saved) + 14:
+            slicer.util.errorDisplay("The sequence does not pass! Number of trials is not valid")
             return
-        while not res:
-            i = res.pop[0]
-            if i not in saved:
-                slicer.util.errorDisplay("The sequence does not pass!")
+        while res:
+            i = res.pop(0)
+            if i not in saved and i not in saved_poped:
+                slicer.util.errorDisplay("The sequence does not pass: A trial is not valid")
                 return
-            saved.remove(i)
+            if i not in saved and i in saved_poped:
+                saved_poped.remove(i)
+            if i in saved and i not in saved_poped:
+                saved.remove(i)
+                saved_poped.append(i)
+            if i in saved and i in saved_poped:
+                slicer.util.errorDisplay("The sequence does not pass: A trial repeated 3 times")
+                return
+        if len(saved) != 0:
+            slicer.util.errorDisplay("The sequence does not pass: A trial is not performed")
+            return
         return True
 
     def processApplySeq(self, text):

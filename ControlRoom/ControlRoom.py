@@ -429,6 +429,15 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             comm_out = json.dumps(comm)
             self.logic._connections.utilSendCommand(comm_out)
 
+            sessionSeq = self._parameterNode.GetParameter("SessionSeq").strip().split("\n")
+            sessionSeq = ["__NONE__"] + sessionSeq + ["__NONE__"]
+            self._parameterNode.SetParameter("TrialIndex", \
+                str(self.ui.comboTargetTrial.currentIndex()))
+            self._parameterNode.SetParameter("PrevTrial", \
+                sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))])
+            self._parameterNode.SetParameter("CurTrial", \
+                sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
+
 
 #
 # ControlRoomLogic
@@ -636,8 +645,6 @@ class ControlRoomConnections(UtilConnectionsWtNnBlcRcv):
             self._parameterNode.SetParameter("CurTrial", \
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
         if msg == "trialstop":
-            return
-        if msg == "targettrialcomplete":
             return
 
         

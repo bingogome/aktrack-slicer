@@ -145,6 +145,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.removeObservers()
         if self.logic._connections_screendot:
             self.logic._connections_screendot.clear()
+        if self.logic._connections_tracker:
+            self.logic._connections_tracker.clear()
 
     def enter(self):
         """
@@ -388,9 +390,13 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.ui.comboTargetTrial.addItem(i)
         
     def onPushStartVis(self):
+        comm_out = "start_visualizat" + ";"
+        self.logic._connections_tracker.utilSendCommand(comm_out)
         self._parameterNode.SetParameter("Visualization", "true")
 
     def onPushStopVis(self):
+        comm_out = "stop_visualizati" + ";"
+        self.logic._connections_tracker.utilSendCommand(comm_out)
         self._parameterNode.SetParameter("Visualization", "false")
         
     def onPushPrevTrial(self):
@@ -399,6 +405,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._parameterNode.GetParameter("PrevTrial") == "__NONE__":
                 return
             else:
+                comm_out = "start_trialxxxxx" + "_" + \
+                    self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
+                    self._parameterNode.GetParameter("SubjectAcr").split("_")[1] + "_" + \
+                    self._parameterNode.GetParameter("PrevTrial") + ";"
+                self.logic._connections_tracker.utilSendCommand(comm_out)
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("PrevTrial")}
                 comm_out = json.dumps(comm)
@@ -412,6 +423,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "commandcontent":""}
         comm_out = json.dumps(comm)
         self.logic._connections_screendot.utilSendCommand(comm_out)
+        comm_out = "stop_trialxxxxxx" + ";"
+        self.logic._connections_tracker.utilSendCommand(comm_out)
         
     def onPushCurTrial(self):
         
@@ -419,6 +432,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._parameterNode.GetParameter("CurTrial") == "__NONE__":
                 return
             else:
+                comm_out = "start_trialxxxxx" + "_" + \
+                    self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
+                    self._parameterNode.GetParameter("SubjectAcr").split("_")[1] + "_" + \
+                    self._parameterNode.GetParameter("CurTrial") + ";"
+                self.logic._connections_tracker.utilSendCommand(comm_out)
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("CurTrial")}
                 comm_out = json.dumps(comm)
@@ -439,6 +457,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onPushTargetTrial(self):
         # Check if the name is valid
         if self._parameterNode.GetParameter("TargetTrial"):
+            comm_out = "start_trialxxxxx" + "_" + \
+                self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
+                self._parameterNode.GetParameter("SubjectAcr").split("_")[1] + "_" + \
+                self._parameterNode.GetParameter("TargetTrial") + ";"
+            self.logic._connections_tracker.utilSendCommand(comm_out)
             # Send trial info to screen dot application
             comm = {"commandtype":"trialcommand", \
                 "commandcontent":self._parameterNode.GetParameter("TargetTrial")}
@@ -482,6 +505,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         self._configPath = configPath
         self.initializeModule()
         self._connections_screendot = None
+        self._connections_tracker = None
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -498,22 +522,26 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         if not parameterNode.GetParameter("TargetTrial"):
             parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
         if not parameterNode.GetParameter("TerminalIPPort"):
-            parameterNode.SetParameter("TerminalIPPort","127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n")
+            parameterNode.SetParameter("TerminalIPPort", \
+            "127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n10.17.101.48:8057\n10.17.101.48:8059\n10.17.101.48:8083\n")
         if not parameterNode.GetParameter("CurTrial"):
             parameterNode.SetParameter("CurTrial", "__NONE__")
         if not parameterNode.GetParameter("PrevTrial"):
             parameterNode.SetParameter("PrevTrial", "__NONE__")
 
     def processConnectTerminal(self):
+
         terminalIPPort = self._parameterNode.GetParameter("TerminalIPPort")
         ipPortArr = terminalIPPort.strip().split("\n")
-        sock_ip_receive_nnblc = ipPortArr[2].split(":")[0]
-        sock_port_receive_nnblc = int(ipPortArr[2].split(":")[1])
         packetInterval = 8 # wait time of the singleShot function (msec)
-        sock_ip_receive = ipPortArr[1].split(":")[0]
-        sock_port_receive = int(ipPortArr[1].split(":")[1])
-        sock_ip_send = ipPortArr[0].split(":")[0]
-        sock_port_send = int(ipPortArr[0].split(":")[1])
+
+        # Screen dot connections
+        sock_ip_receive_nnblc, sock_port_receive_nnblc = \
+            ipPortArr[2].split(":")[0], int(ipPortArr[2].split(":")[1])
+        sock_ip_receive, sock_port_receive = \
+            ipPortArr[1].split(":")[0], int(ipPortArr[1].split(":")[1])
+        sock_ip_send, sock_port_send = \
+            ipPortArr[0].split(":")[0], int(ipPortArr[0].split(":")[1])
 
         if not self._connections_screendot:
             self._connections_screendot = ControlRoomConnectionsScreenDot(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
@@ -522,6 +550,24 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             self._connections_screendot._flag_receiving_nnblc = True
             self._connections_screendot.receiveTimerCallBack()
             self._connections_screendot._parameterNode = self._parameterNode
+
+        # Tracker connections
+        sock_ip_receive_nnblc, sock_port_receive_nnblc = \
+            ipPortArr[5].split(":")[0], int(ipPortArr[5].split(":")[1])
+        sock_ip_receive, sock_port_receive = \
+            ipPortArr[4].split(":")[0], int(ipPortArr[4].split(":")[1])
+        sock_ip_send, sock_port_send = \
+            ipPortArr[3].split(":")[0], int(ipPortArr[3].split(":")[1])
+
+        if not self._connections_tracker:
+            self._connections_tracker = ControlRoomConnectionsTracker(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
+                sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+            self._connections_tracker.setup()
+            self._connections_tracker._flag_receiving_nnblc = True
+            self._connections_tracker.receiveTimerCallBack()
+            self._connections_tracker._parameterNode = self._parameterNode
+
+        self._connections_screendot._connections_tracker = self._connections_tracker
             
     def initializeModule(self):
         with open(self._configPath + "SubjectConfig.json") as f:
@@ -671,6 +717,9 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
     def utilTrialStopped(self):
         print("Trial stopped")
         self._parameterNode.SetParameter("RunningATrial", "false")
+        comm_out = "stop_trialxxxxxx" + ";"
+        self._connections_tracker.utilSendCommand(comm_out)
+
         msg = self._jsondata["commandcontent"]
         if msg == "trialcomplete":
             sessionSeq = self._parameterNode.GetParameter("SessionSeq").strip().split("\n")

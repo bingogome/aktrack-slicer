@@ -27,7 +27,6 @@ SOFTWARE.
 #
 
 import socket
-import json
 import slicer
 
 

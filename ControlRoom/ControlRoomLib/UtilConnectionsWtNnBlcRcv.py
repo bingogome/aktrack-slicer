@@ -53,7 +53,7 @@ class UtilConnectionsWtNnBlcRcv(UtilConnections):
         self._sock_receive_nnblc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # set buffer size to 1 if want data to be time sensitive
         self._sock_receive_nnblc.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
-        self._sock_receive_nnblc.connect(\
+        self._sock_receive_nnblc.bind(\
             (self._sock_ip_receive_nnblc, self._sock_port_receive_nnblc))
         # self._sock_receive_nnblc.settimeout(0.1/1000)
         self._sock_receive_nnblc.setblocking(0)

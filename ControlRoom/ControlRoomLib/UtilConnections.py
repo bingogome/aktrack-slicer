@@ -49,7 +49,7 @@ class UtilConnections():
     def setup(self):
         self._sock_receive = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock_receive.connect(
+        self._sock_receive.bind(
             (self._sock_ip_receive, self._sock_port_receive))
         self._sock_receive.settimeout(0.5)
 

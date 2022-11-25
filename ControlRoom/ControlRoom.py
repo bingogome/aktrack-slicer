@@ -23,6 +23,7 @@ import logging
 import os
 import json
 import random, qt, time
+from ControlRoomLib.UtilSlicerFuncs import setTranslation
 from datetime import datetime, timedelta
 from ControlRoomLib.UtilConnectionsWtNnBlcRcv import UtilConnectionsWtNnBlcRcv
 
@@ -390,6 +391,26 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.ui.comboTargetTrial.addItem(i)
         
     def onPushStartVis(self):
+
+        if not self._parameterNode.GetNodeReference("TrackerIndicatorTr"):
+            transformNode = slicer.vtkMRMLTransformNode()
+            slicer.mrmlScene.AddNode(transformNode)
+            self._parameterNode.SetNodeReferenceID(
+                "TrackerIndicatorTr", transformNode.GetID())
+
+        if not self._parameterNode.GetNodeReference("TrackerIndicator"):
+            inputModel = slicer.util.loadModel(self.logic._configPath + "BoardModel.STL")
+            inputModel = slicer.util.loadModel(self.logic._configPath + "TrackerIndicatorModel.STL")
+            self._parameterNode.SetNodeReferenceID(
+                "TrackerIndicator", inputModel.GetID())
+
+        modelTransform = self._parameterNode.GetNodeReference("TrackerIndicatorTr")
+        modelIndicator = self._parameterNode.GetNodeReference("TrackerIndicator")
+
+        modelTransform.SetMatrixTransformToParent(self._connections_tracker._transformMatrixTrackerIndicator)
+        modelIndicator.SetAndObserveTransformNodeID(
+            modelTransform.GetID())
+
         comm_out = "start_visualizat" + ";"
         self.logic._connections_tracker.utilSendCommand(comm_out)
         self._parameterNode.SetParameter("Visualization", "true")
@@ -706,7 +727,7 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
         self._jsondata = json.loads(data)
         if self._jsondata["commandtype"] == "test":
             return self.utilTestCallBack
-        if self._jsondata["commandtype"] == "trialStop":
+        elif self._jsondata["commandtype"] == "trialStop":
             return self.utilTrialStopped
 
     def utilTestCallBack(self):
@@ -730,7 +751,7 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))])
             self._parameterNode.SetParameter("CurTrial", \
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
-        if msg == "trialstop":
+        elif msg == "trialstop":
             return
 
 class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
@@ -739,10 +760,13 @@ class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
             sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send):
         super().__init__(sock_ip_receive_nnblc, sock_port_receive_nnblc, packetInterval, \
             sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+        self._transformMatrixTrackerIndicator = None
 
     def setup(self):
         super().setup()
         self._jsondata = None
+        if not self._transformMatrixTrackerIndicator:
+            self._transformMatrixTrackerIndicator = vtk.vtkMatrix4x4()
 
     def handleReceivedData(self):
         """
@@ -755,9 +779,22 @@ class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
         """
         """
         data = self._data_buff.decode("UTF-8")
-        self._jsondata = json.loads(data)
-        if self._jsondata["commandtype"] == "test":
+        if data.startswith("__msg_pose_"):
+            msg = data[11:]
+            num_str = msg.split("_")
+            self._buffvispose = []
+            for i in num_str:
+                self._buffpose.append(float(i))
+            return self.utilVisCallBack
+        elif data == "test":
             return self.utilTestCallBack
+        
+    def utilVisCallBack(self):
+        p = [self._buffvispose[0], self._buffvispose[1], 0]
+        setTranslation(p, self._transformMatrixTrackerIndicator)
+        self._parameterNode.GetNodeReference(
+            "TrackerIndicatorTr").SetMatrixTransformToParent(self._transformMatrixTrackerIndicator)
+        slicer.app.processEvents()
 
     def utilTestCallBack(self):
         """

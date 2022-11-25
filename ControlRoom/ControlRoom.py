@@ -407,7 +407,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         modelTransform = self._parameterNode.GetNodeReference("TrackerIndicatorTr")
         modelIndicator = self._parameterNode.GetNodeReference("TrackerIndicator")
 
-        modelTransform.SetMatrixTransformToParent(self._connections_tracker._transformMatrixTrackerIndicator)
+        modelTransform.SetMatrixTransformToParent(self.logic._connections_tracker._transformMatrixTrackerIndicator)
         modelIndicator.SetAndObserveTransformNodeID(
             modelTransform.GetID())
 

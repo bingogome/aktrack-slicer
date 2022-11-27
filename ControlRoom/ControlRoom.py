@@ -23,6 +23,7 @@ import logging
 import os
 import json
 import random, qt, time
+from ControlRoomLib.UtilConnections import UtilConnections
 from ControlRoomLib.UtilSlicerFuncs import setTranslation
 from datetime import datetime, timedelta
 from ControlRoomLib.UtilConnectionsWtNnBlcRcv import UtilConnectionsWtNnBlcRcv
@@ -148,6 +149,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.logic._connections_screendot.clear()
         if self.logic._connections_tracker:
             self.logic._connections_tracker.clear()
+        if self.logic._connections_goggle:
+            self.logic._connections_goggle.clear()
 
     def enter(self):
         """
@@ -426,26 +429,50 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._parameterNode.GetParameter("PrevTrial") == "__NONE__":
                 return
             else:
+                # Notify aktrack-matlab module
+                if self._parameterNode.GetParameter("PrevTrial") == "VPB-hfixed":
+                    self.logic._connections_goggle.utilSendCommand('1')
+                elif self._parameterNode.GetParameter("PrevTrial") == "VPB-hfree":
+                    self.logic._connections_goggle.utilSendCommand('2')
+                # Notify aktrack-ros module
                 comm_out = "start_trialxxxxx" + "_" + \
                     self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
                     self._parameterNode.GetParameter("SubjectAcr").split("_")[1] + "_" + \
                     self._parameterNode.GetParameter("PrevTrial") + ";"
                 self.logic._connections_tracker.utilSendCommand(comm_out)
+                # Notify aktrack-screen module
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("PrevTrial")}
                 comm_out = json.dumps(comm)
                 self.logic._connections_screendot.utilSendCommand(comm_out)
                 self._parameterNode.SetParameter("RunningATrial", "true")
+                # Update the "current trial" and "previous trial" identifiers
+                sessionSeq = self._parameterNode.GetParameter("SessionSeq").strip().split("\n")
+                sessionSeq = ["__NONE__"] + sessionSeq + ["__NONE__"]
+                self._parameterNode.SetParameter("TrialIndex", \
+                    str(int(self._parameterNode.GetParameter("TrialIndex"))-1))
+                self._parameterNode.SetParameter("PrevTrial", \
+                    sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))])
+                self._parameterNode.SetParameter("CurTrial", \
+                    sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
+                # Set GUI timer
                 self._timer_start = datetime.now()
-                qt.QTimer.singleShot(19, self.AccuTimerCallBack)
+                qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
     def onPushStopCurTrial(self):
+        # Notify aktrack-screen module
         comm = {"commandtype":"trialstopcommand", \
             "commandcontent":""}
         comm_out = json.dumps(comm)
         self.logic._connections_screendot.utilSendCommand(comm_out)
+        # Notify aktrack-ros module
         comm_out = "stop_trialxxxxxx" + ";"
         self.logic._connections_tracker.utilSendCommand(comm_out)
+        # Notify aktrack-matlab module
+        if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+            self.logic._connections_goggle.utilSendCommand('3')
+        elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+            self.logic._connections_goggle.utilSendCommand('4')
         
     def onPushCurTrial(self):
         
@@ -453,11 +480,18 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._parameterNode.GetParameter("CurTrial") == "__NONE__":
                 return
             else:
+                # Notify aktrack-matlab module
+                if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+                    self.logic._connections_goggle.utilSendCommand('1')
+                elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+                    self.logic._connections_goggle.utilSendCommand('2')
+                # Notify aktrack-ros module
                 comm_out = "start_trialxxxxx" + "_" + \
                     self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
                     self._parameterNode.GetParameter("SubjectAcr").split("_")[1] + "_" + \
                     self._parameterNode.GetParameter("CurTrial") + ";"
                 self.logic._connections_tracker.utilSendCommand(comm_out)
+                # Notify aktrack-screen module
                 comm = {"commandtype":"trialcommand", \
                     "commandcontent":self._parameterNode.GetParameter("CurTrial")}
                 comm_out = json.dumps(comm)
@@ -478,11 +512,18 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def onPushTargetTrial(self):
         # Check if the name is valid
         if self._parameterNode.GetParameter("TargetTrial"):
+            # Notify aktrack-matlab module
+            if self._parameterNode.GetParameter("TargetTrial") == "VPB-hfixed":
+                self.logic._connections_goggle.utilSendCommand('1')
+            elif self._parameterNode.GetParameter("TargetTrial") == "VPB-hfree":
+                self.logic._connections_goggle.utilSendCommand('2')
+            # Notify aktrack-ros module
             comm_out = "start_trialxxxxx" + "_" + \
                 self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
                 self._parameterNode.GetParameter("SubjectAcr").split("_")[1] + "_" + \
                 self._parameterNode.GetParameter("TargetTrial") + ";"
             self.logic._connections_tracker.utilSendCommand(comm_out)
+            # Notify aktrack-screen module
             # Send trial info to screen dot application
             comm = {"commandtype":"trialcommand", \
                 "commandcontent":self._parameterNode.GetParameter("TargetTrial")}
@@ -527,6 +568,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         self.initializeModule()
         self._connections_screendot = None
         self._connections_tracker = None
+        self._connections_goggle = None
 
     def setDefaultParameters(self, parameterNode):
         """
@@ -544,7 +586,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
         if not parameterNode.GetParameter("TerminalIPPort"):
             parameterNode.SetParameter("TerminalIPPort", \
-            "127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n10.17.101.48:8057\n0.0.0.0:8059\n0.0.0.0:8083\n")
+            "127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n10.17.101.48:8057\n0.0.0.0:8059\n0.0.0.0:8083\n127.0.0.1:8297\n127.0.0.1:8293")
         if not parameterNode.GetParameter("CurTrial"):
             parameterNode.SetParameter("CurTrial", "__NONE__")
         if not parameterNode.GetParameter("PrevTrial"):
@@ -589,6 +631,19 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             self._connections_tracker._parameterNode = self._parameterNode
 
         self._connections_screendot._connections_tracker = self._connections_tracker
+
+        # Goggle connections
+        sock_ip_receive, sock_port_receive = \
+            ipPortArr[7].split(":")[0], int(ipPortArr[7].split(":")[1])
+        sock_ip_send, sock_port_send = \
+            ipPortArr[6].split(":")[0], int(ipPortArr[6].split(":")[1])
+
+        if not self._connections_goggle:
+            self._connections_goggle = UtilConnections(sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
+            self._connections_goggle.setup()
+            self._connections_goggle._sock_receive.settimeout(2.5)
+
+        self._connections_screendot._connections_goggle = self._connections_goggle
             
     def initializeModule(self):
         with open(self._configPath + "SubjectConfig.json") as f:
@@ -740,6 +795,11 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
         self._parameterNode.SetParameter("RunningATrial", "false")
         comm_out = "stop_trialxxxxxx" + ";"
         self._connections_tracker.utilSendCommand(comm_out)
+        # Notify aktrack-matlab module
+        if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+            self._connections_goggle.utilSendCommand('3')
+        elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+            self._connections_goggle.utilSendCommand('4')
 
         msg = self._jsondata["commandcontent"]
         if msg == "trialcomplete":

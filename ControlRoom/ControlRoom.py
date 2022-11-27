@@ -544,7 +544,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("TargetTrial", self.ui.comboTargetTrial.currentText)
         if not parameterNode.GetParameter("TerminalIPPort"):
             parameterNode.SetParameter("TerminalIPPort", \
-            "127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n10.17.101.48:8057\n127.0.0.1:8059\n127.0.0.1:8083\n")
+            "127.0.0.1:8753\n127.0.0.1:8769\n127.0.0.1:8757\n10.17.101.48:8057\n0.0.0.0:8059\n0.0.0.0:8083\n")
         if not parameterNode.GetParameter("CurTrial"):
             parameterNode.SetParameter("CurTrial", "__NONE__")
         if not parameterNode.GetParameter("PrevTrial"):

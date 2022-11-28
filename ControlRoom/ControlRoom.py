@@ -478,9 +478,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "commandcontent":""}
         comm_out = json.dumps(comm)
         self.logic._connections_screendot.utilSendCommand(comm_out)
-        # Notify aktrack-ros module
-        comm_out = "stop_trialxxxxxx" + ";"
-        self.logic._connections_tracker.utilSendCommand(comm_out)
+        # Notify aktrack-ros module (delay notifying to account for subject reaction time)
+        qt.QTimer.singleShot(1500, self.logic._connections_screendot.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
         if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
             self.logic._connections_goggle.utilSendCommand('3')
@@ -806,8 +805,8 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
     def utilTrialStopped(self):
         print("Trial stopped")
         self._parameterNode.SetParameter("RunningATrial", "false")
-        comm_out = "stop_trialxxxxxx" + ";"
-        self._connections_tracker.utilSendCommand(comm_out)
+        # Notify aktrack-ros module (delay notifying to account for subject reaction time)
+        qt.QTimer.singleShot(1500, self.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
         if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
             self._connections_goggle.utilSendCommand('3')
@@ -826,6 +825,10 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
         elif msg == "trialstop":
             return
+
+    def utilDelayNotifyEndTrialROS(self):
+        comm_out = "stop_trialxxxxxx" + ";"
+        self._connections_tracker.utilSendCommand(comm_out)
 
 class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
 

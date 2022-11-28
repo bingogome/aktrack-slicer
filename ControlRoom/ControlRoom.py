@@ -23,6 +23,7 @@ import logging
 import os
 import json
 import random, qt, time
+from ControlRoomLib.UtilSlicerFuncs import setRotation
 from ControlRoomLib.UtilConnections import UtilConnections
 from ControlRoomLib.UtilSlicerFuncs import setTranslation
 from datetime import datetime, timedelta
@@ -403,9 +404,21 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if not self._parameterNode.GetNodeReference("TrackerIndicator"):
             inputModel = slicer.util.loadModel(self.logic._configPath + "BoardModel.STL")
+            inputModel.GetDisplayNode().SetColor(0,0,0)
             inputModel = slicer.util.loadModel(self.logic._configPath + "TrackerIndicatorModel.STL")
+            inputModel.GetDisplayNode().SetColor(1,1,1)
             self._parameterNode.SetNodeReferenceID(
                 "TrackerIndicator", inputModel.GetID())
+
+            threeDViewNode = slicer.app.layoutManager().threeDWidget(0).threeDView().mrmlViewNode()
+            camera = slicer.modules.cameras.logic().GetViewActiveCameraNode(threeDViewNode).GetCamera()
+            t,m = vtk.vtkTransform(), vtk.vtkMatrix4x4()
+            setRotation([\
+                [1,0,0], \
+                [0,0,-1], \
+                [0,1,0]], m)
+            t.SetMatrix(m)
+            camera.ApplyTransform(t)
 
         modelTransform = self._parameterNode.GetNodeReference("TrackerIndicatorTr")
         modelIndicator = self._parameterNode.GetNodeReference("TrackerIndicator")

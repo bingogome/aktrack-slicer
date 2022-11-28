@@ -844,7 +844,7 @@ class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
             num_str = msg.split("_")
             self._buffvispose = []
             for i in num_str:
-                self._buffpose.append(float(i))
+                self._buffvispose.append(float(i))
             return self.utilVisCallBack
         elif data == "test":
             return self.utilTestCallBack

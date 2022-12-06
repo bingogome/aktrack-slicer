@@ -23,6 +23,7 @@ import logging
 import os
 import json
 import random, qt, time
+from ControlRoomLib.UtilSlicerFuncs import setRotation
 from ControlRoomLib.UtilConnections import UtilConnections
 from ControlRoomLib.UtilSlicerFuncs import setTranslation
 from datetime import datetime, timedelta
@@ -403,9 +404,21 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if not self._parameterNode.GetNodeReference("TrackerIndicator"):
             inputModel = slicer.util.loadModel(self.logic._configPath + "BoardModel.STL")
+            inputModel.GetDisplayNode().SetColor(0,0,0)
             inputModel = slicer.util.loadModel(self.logic._configPath + "TrackerIndicatorModel.STL")
+            inputModel.GetDisplayNode().SetColor(1,1,1)
             self._parameterNode.SetNodeReferenceID(
                 "TrackerIndicator", inputModel.GetID())
+
+            threeDViewNode = slicer.app.layoutManager().threeDWidget(0).threeDView().mrmlViewNode()
+            camera = slicer.modules.cameras.logic().GetViewActiveCameraNode(threeDViewNode).GetCamera()
+            t,m = vtk.vtkTransform(), vtk.vtkMatrix4x4()
+            setRotation([\
+                [1,0,0], \
+                [0,0,-1], \
+                [0,1,0]], m)
+            t.SetMatrix(m)
+            camera.ApplyTransform(t)
 
         modelTransform = self._parameterNode.GetNodeReference("TrackerIndicatorTr")
         modelIndicator = self._parameterNode.GetNodeReference("TrackerIndicator")
@@ -465,9 +478,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "commandcontent":""}
         comm_out = json.dumps(comm)
         self.logic._connections_screendot.utilSendCommand(comm_out)
-        # Notify aktrack-ros module
-        comm_out = "stop_trialxxxxxx" + ";"
-        self.logic._connections_tracker.utilSendCommand(comm_out)
+        # Notify aktrack-ros module (delay notifying to account for subject reaction time)
+        qt.QTimer.singleShot(1500, self.logic._connections_screendot.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
         if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
             self.logic._connections_goggle.utilSendCommand('3')
@@ -641,7 +653,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         if not self._connections_goggle:
             self._connections_goggle = UtilConnections(sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
             self._connections_goggle.setup()
-            self._connections_goggle._sock_receive.settimeout(2.5)
+            self._connections_goggle._sock_receive.settimeout(6)
 
         self._connections_screendot._connections_goggle = self._connections_goggle
             
@@ -802,8 +814,8 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
     def utilTrialStopped(self):
         print("Trial stopped")
         self._parameterNode.SetParameter("RunningATrial", "false")
-        comm_out = "stop_trialxxxxxx" + ";"
-        self._connections_tracker.utilSendCommand(comm_out)
+        # Notify aktrack-ros module (delay notifying to account for subject reaction time)
+        qt.QTimer.singleShot(1500, self.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
         if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
             self._connections_goggle.utilSendCommand('3')
@@ -822,6 +834,10 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
                 sessionSeq[int(self._parameterNode.GetParameter("TrialIndex"))+1])
         elif msg == "trialstop":
             return
+
+    def utilDelayNotifyEndTrialROS(self):
+        comm_out = "stop_trialxxxxxx" + ";"
+        self._connections_tracker.utilSendCommand(comm_out)
 
 class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
 
@@ -853,7 +869,7 @@ class ControlRoomConnectionsTracker(UtilConnectionsWtNnBlcRcv):
             num_str = msg.split("_")
             self._buffvispose = []
             for i in num_str:
-                self._buffpose.append(float(i))
+                self._buffvispose.append(float(i))
             return self.utilVisCallBack
         elif data == "test":
             return self.utilTestCallBack

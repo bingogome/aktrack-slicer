@@ -692,7 +692,8 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         vpc.extend(random.sample(set(vpc), 2))
         random.shuffle(vpc)
 
-        vpm = ["VPM-2", "VPM-4", "VPM-6", "VPM-8", "VPM-12", "VPM-24"]
+        # vpm = ["VPM-2", "VPM-4", "VPM-6", "VPM-8", "VPM-12", "VPM-24"]
+        vpm = ["VPM-2", "VPM-4", "VPM-6", "VPM-8", "VPM-12", "VPM-18"]
         random.shuffle(vpm)
         def randDir(sess):
             arr = [sess+"-L", sess+"-R", sess+"-U", sess+"-D"]
@@ -710,11 +711,19 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
 
     def processSeqTextCheck(self, text):
         res = text.strip().split("\n")
+        # saved = ['VPM-2-L', 'VPM-2-U', 'VPM-2-R', 'VPM-2-D', \
+        #     'VPM-4-L', 'VPM-4-U', 'VPM-4-R', 'VPM-4-D', \
+        #     'VPM-12-U', 'VPM-12-R', 'VPM-12-L', 'VPM-12-D', \
+        #     'VPM-6-U', 'VPM-6-L', 'VPM-6-D', 'VPM-6-R', \
+        #     'VPM-24-U', 'VPM-24-R', 'VPM-24-D', 'VPM-24-L', \
+        #     'VPM-8-D', 'VPM-8-L', 'VPM-8-R', 'VPM-8-U', \
+        #     'VPC-U', 'VPC-D', 'VPC-R', 'VPC-L', \
+        #     'VPB-hfixed', 'VPB-hfree']
         saved = ['VPM-2-L', 'VPM-2-U', 'VPM-2-R', 'VPM-2-D', \
             'VPM-4-L', 'VPM-4-U', 'VPM-4-R', 'VPM-4-D', \
             'VPM-12-U', 'VPM-12-R', 'VPM-12-L', 'VPM-12-D', \
             'VPM-6-U', 'VPM-6-L', 'VPM-6-D', 'VPM-6-R', \
-            'VPM-24-U', 'VPM-24-R', 'VPM-24-D', 'VPM-24-L', \
+            'VPM-18-U', 'VPM-18-R', 'VPM-18-D', 'VPM-18-L', \
             'VPM-8-D', 'VPM-8-L', 'VPM-8-R', 'VPM-8-U', \
             'VPC-U', 'VPC-D', 'VPC-R', 'VPC-L', \
             'VPB-hfixed', 'VPB-hfree']

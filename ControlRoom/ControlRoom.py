@@ -479,7 +479,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         comm_out = json.dumps(comm)
         self.logic._connections_screendot.utilSendCommand(comm_out)
         # Notify aktrack-ros module (delay notifying to account for subject reaction time)
-        qt.QTimer.singleShot(1500, self.logic._connections_screendot.utilDelayNotifyEndTrialROS)
+        qt.QTimer.singleShot(500, self.logic._connections_screendot.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
         if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
             self.logic._connections_goggle.utilSendCommand('3')
@@ -815,7 +815,7 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
         print("Trial stopped")
         self._parameterNode.SetParameter("RunningATrial", "false")
         # Notify aktrack-ros module (delay notifying to account for subject reaction time)
-        qt.QTimer.singleShot(1500, self.utilDelayNotifyEndTrialROS)
+        qt.QTimer.singleShot(500, self.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
         if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
             self._connections_goggle.utilSendCommand('3')

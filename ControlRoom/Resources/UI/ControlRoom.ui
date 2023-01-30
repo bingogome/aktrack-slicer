@@ -208,35 +208,14 @@
       <bool>true</bool>
      </property>
      <layout class="QGridLayout" name="gridLayout_4">
-      <item row="6" column="0" colspan="3">
-       <widget class="QPushButton" name="pushCurTrial">
-        <property name="text">
-         <string>Perform Current Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="0">
-       <widget class="QLabel" name="labelTargetTrial">
-        <property name="text">
-         <string>Target Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="0" colspan="3">
-       <widget class="QPushButton" name="pushTargetTrial">
-        <property name="text">
-         <string>Perform Target Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0" colspan="3">
+      <item row="7" column="0" colspan="3">
        <widget class="QPushButton" name="pushStopCurTrial">
         <property name="text">
          <string>Stop Current Trial</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="2">
+      <item row="3" column="2">
        <widget class="QTextEdit" name="textPrevTrial">
         <property name="maximumSize">
          <size>
@@ -249,31 +228,21 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="labelPrevTrial">
-        <property name="text">
-         <string>Previous Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="1" colspan="2">
-       <widget class="QComboBox" name="comboTargetTrial"/>
-      </item>
-      <item row="4" column="0">
-       <widget class="QLabel" name="labelCurTrial">
-        <property name="text">
-         <string>Current Trial</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0" colspan="3">
+      <item row="5" column="0" colspan="3">
        <widget class="QPushButton" name="pushPrevTrial">
         <property name="text">
          <string>Perform Previous Trial</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="2">
+      <item row="6" column="0">
+       <widget class="QLabel" name="labelCurTrial">
+        <property name="text">
+         <string>Current Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="2">
        <widget class="QTextEdit" name="textCurTrial">
         <property name="maximumSize">
          <size>
@@ -283,6 +252,30 @@
         </property>
         <property name="readOnly">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0" colspan="3">
+       <widget class="QPushButton" name="pushCurTrial">
+        <property name="text">
+         <string>Perform Current Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="labelPrevTrial">
+        <property name="text">
+         <string>Previous Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="1" colspan="2">
+       <widget class="QComboBox" name="comboTargetTrial"/>
+      </item>
+      <item row="10" column="0">
+       <widget class="QLabel" name="labelTargetTrial">
+        <property name="text">
+         <string>Target Trial</string>
         </property>
        </widget>
       </item>
@@ -296,6 +289,20 @@
         </property>
         <property name="readOnly">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="0" colspan="3">
+       <widget class="QPushButton" name="pushTargetTrial">
+        <property name="text">
+         <string>Perform Target Trial</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="QCheckBox" name="checkNoGoggles">
+        <property name="text">
+         <string>Do Not Use Goggles</string>
         </property>
        </widget>
       </item>

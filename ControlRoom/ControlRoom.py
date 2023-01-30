@@ -443,10 +443,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 return
             else:
                 # Notify aktrack-matlab module
-                if self._parameterNode.GetParameter("PrevTrial") == "VPB-hfixed":
-                    self.logic._connections_goggle.utilSendCommand('1')
-                elif self._parameterNode.GetParameter("PrevTrial") == "VPB-hfree":
-                    self.logic._connections_goggle.utilSendCommand('2')
+                if not self.ui.checkNoGoggles.checked: 
+                    if self._parameterNode.GetParameter("PrevTrial") == "VPB-hfixed":
+                        self.logic._connections_goggle.utilSendCommand('1')
+                    elif self._parameterNode.GetParameter("PrevTrial") == "VPB-hfree":
+                        self.logic._connections_goggle.utilSendCommand('2')
                 # Notify aktrack-ros module
                 comm_out = "start_trialxxxxx" + "_" + \
                     self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
@@ -481,10 +482,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Notify aktrack-ros module (delay notifying to account for subject reaction time)
         qt.QTimer.singleShot(500, self.logic._connections_screendot.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
-        if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
-            self.logic._connections_goggle.utilSendCommand('3')
-        elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
-            self.logic._connections_goggle.utilSendCommand('4')
+        if not self.ui.checkNoGoggles.checked: 
+            if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+                self.logic._connections_goggle.utilSendCommand('3')
+            elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+                self.logic._connections_goggle.utilSendCommand('4')
         
     def onPushCurTrial(self):
         
@@ -493,10 +495,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 return
             else:
                 # Notify aktrack-matlab module
-                if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
-                    self.logic._connections_goggle.utilSendCommand('1')
-                elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
-                    self.logic._connections_goggle.utilSendCommand('2')
+                if not self.ui.checkNoGoggles.checked: 
+                    if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+                        self.logic._connections_goggle.utilSendCommand('1')
+                    elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+                        self.logic._connections_goggle.utilSendCommand('2')
                 # Notify aktrack-ros module
                 comm_out = "start_trialxxxxx" + "_" + \
                     self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
@@ -525,10 +528,11 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Check if the name is valid
         if self._parameterNode.GetParameter("TargetTrial"):
             # Notify aktrack-matlab module
-            if self._parameterNode.GetParameter("TargetTrial") == "VPB-hfixed":
-                self.logic._connections_goggle.utilSendCommand('1')
-            elif self._parameterNode.GetParameter("TargetTrial") == "VPB-hfree":
-                self.logic._connections_goggle.utilSendCommand('2')
+            if not self.ui.checkNoGoggles.checked: 
+                if self._parameterNode.GetParameter("TargetTrial") == "VPB-hfixed":
+                    self.logic._connections_goggle.utilSendCommand('1')
+                elif self._parameterNode.GetParameter("TargetTrial") == "VPB-hfree":
+                    self.logic._connections_goggle.utilSendCommand('2')
             # Notify aktrack-ros module
             comm_out = "start_trialxxxxx" + "_" + \
                 self._parameterNode.GetParameter("ExperimentTimeStamp") + "_" + \
@@ -817,10 +821,11 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
         # Notify aktrack-ros module (delay notifying to account for subject reaction time)
         qt.QTimer.singleShot(500, self.utilDelayNotifyEndTrialROS)
         # Notify aktrack-matlab module
-        if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
-            self._connections_goggle.utilSendCommand('3')
-        elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
-            self._connections_goggle.utilSendCommand('4')
+        if not self.ui.checkNoGoggles.checked: 
+            if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+                self._connections_goggle.utilSendCommand('3')
+            elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+                self._connections_goggle.utilSendCommand('4')
 
         msg = self._jsondata["commandcontent"]
         if msg == "trialcomplete":

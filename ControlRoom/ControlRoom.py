@@ -629,6 +629,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
             self._connections_screendot._flag_receiving_nnblc = True
             self._connections_screendot.receiveTimerCallBack()
             self._connections_screendot._parameterNode = self._parameterNode
+            self._connections_screendot.ui = self.ui
 
         # Tracker connections
         sock_ip_receive_nnblc, sock_port_receive_nnblc = \
@@ -823,8 +824,10 @@ class ControlRoomConnectionsScreenDot(UtilConnectionsWtNnBlcRcv):
         # Notify aktrack-matlab module
         if not self.ui.checkNoGoggles.checked: 
             if self._parameterNode.GetParameter("CurTrial") == "VPB-hfixed":
+                print("sending end command (VPB-hfixed) ...")
                 self._connections_goggle.utilSendCommand('3')
             elif self._parameterNode.GetParameter("CurTrial") == "VPB-hfree":
+                print("sending end command (VPB-hfree) ...")
                 self._connections_goggle.utilSendCommand('4')
 
         msg = self._jsondata["commandcontent"]

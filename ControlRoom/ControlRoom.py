@@ -658,7 +658,7 @@ class ControlRoomLogic(ScriptedLoadableModuleLogic):
         if not self._connections_goggle:
             self._connections_goggle = UtilConnections(sock_ip_receive, sock_port_receive, sock_ip_send, sock_port_send)
             self._connections_goggle.setup()
-            self._connections_goggle._sock_receive.settimeout(6)
+            self._connections_goggle._sock_receive.settimeout(15)
 
         self._connections_screendot._connections_goggle = self._connections_goggle
             

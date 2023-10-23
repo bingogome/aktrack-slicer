@@ -189,10 +189,20 @@
         </property>
        </widget>
       </item>
+      <item row="2" column="0">
+       <widget class="ctkPathLineEdit" name="pathReplay"/>
+      </item>
       <item row="1" column="0">
        <widget class="QPushButton" name="pushStopVis">
         <property name="text">
          <string>Stop Visualization</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QPushButton" name="pushReplay">
+        <property name="text">
+         <string>Replay</string>
         </property>
        </widget>
       </item>
@@ -330,6 +340,11 @@
    <extends>QWidget</extends>
    <header>ctkCollapsibleButton.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkPathLineEdit</class>
+   <extends>QWidget</extends>
+   <header>ctkPathLineEdit.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLWidget</class>

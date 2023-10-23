@@ -23,6 +23,7 @@ import logging
 import os
 import json
 import random, qt, time
+import numpy as np
 from ControlRoomLib.UtilSlicerFuncs import setRotation
 from ControlRoomLib.UtilConnections import UtilConnections
 from ControlRoomLib.UtilSlicerFuncs import setTranslation
@@ -127,6 +128,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.pushStopCurTrial.connect('clicked(bool)', self.onPushStopCurTrial)
         self.ui.pushCurTrial.connect('clicked(bool)', self.onPushCurTrial)
         self.ui.pushTargetTrial.connect('clicked(bool)', self.onPushTargetTrial)
+        self.ui.pushReplay.connect('clicked(bool)', self.onPushReplay)
 
         self.ui.pushConnect.connect('clicked(bool)', self.onPushConnect)
 
@@ -560,7 +562,76 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._timer_start = datetime.now()
             qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
+    def onPushReplay(self):
+        path = self.ui.pathReplay.currentPath 
+        if path == '':
+            slicer.util.errorDisplay("No file.")
+            return
+        import csv
+        data = []
+        with open (path) as csvfile:
+            spamreader = csv.reader(csvfile)
+            for row in spamreader:
+                data.append(row)
+        
+        data = np.array(data,dtype=float)
+        data = data[:,0:3] # t, x, y
+        
+        self.replay_data = data
+        self.replay_t_max = np.max(data[:,0])
 
+        if not self._parameterNode.GetNodeReference("TrackerIndicatorTr"):
+            transformNode = slicer.vtkMRMLTransformNode()
+            slicer.mrmlScene.AddNode(transformNode)
+            self._parameterNode.SetNodeReferenceID(
+                "TrackerIndicatorTr", transformNode.GetID())
+
+        if not self._parameterNode.GetNodeReference("TrackerIndicator"):
+            inputModel = slicer.util.loadModel(self.logic._configPath + "BoardModel.STL")
+            inputModel.GetDisplayNode().SetColor(0,0,0)
+            inputModel = slicer.util.loadModel(self.logic._configPath + "TrackerIndicatorModel.STL")
+            inputModel.GetDisplayNode().SetColor(1,1,1)
+            self._parameterNode.SetNodeReferenceID(
+                "TrackerIndicator", inputModel.GetID())
+
+            threeDViewNode = slicer.app.layoutManager().threeDWidget(0).threeDView().mrmlViewNode()
+            camera = slicer.modules.cameras.logic().GetViewActiveCameraNode(threeDViewNode).GetCamera()
+            t,m = vtk.vtkTransform(), vtk.vtkMatrix4x4()
+            setRotation([\
+                [1,0,0], \
+                [0,0,-1], \
+                [0,1,0]], m)
+            t.SetMatrix(m)
+            camera.ApplyTransform(t)
+
+        modelTransform = self._parameterNode.GetNodeReference("TrackerIndicatorTr")
+        modelIndicator = self._parameterNode.GetNodeReference("TrackerIndicator")
+
+        modelTransform.SetMatrixTransformToParent(self.logic._connections_tracker._transformMatrixTrackerIndicator)
+        modelIndicator.SetAndObserveTransformNodeID(
+            modelTransform.GetID())
+
+        self.timer_start_replay = datetime.now()
+        self.helperReplay()
+        print("[AKTRACK INFO] Replay started.")
+        
+    def helperReplay(self):
+        duration = (datetime.now() - self.timer_start_replay).total_seconds()
+        duration = timedelta(seconds=duration).total_seconds()
+        t = self.replay_data[:,0]
+        now_idx = np.max(np.where(t <= duration))
+        p = self.replay_data[now_idx,1:3]
+        p = [-p[0] * 1000.0, -p[1] * 1000.0, 0]
+        
+        setTranslation(p, self.logic._connections_tracker._transformMatrixTrackerIndicator)
+        self._parameterNode.GetNodeReference(
+            "TrackerIndicatorTr").SetMatrixTransformToParent(self.logic._connections_tracker._transformMatrixTrackerIndicator)
+        slicer.app.processEvents()
+
+        if duration < self.replay_t_max:
+            qt.QTimer.singleShot(30, self.helperReplay)
+        else:
+            print("[AKTRACK INFO] Replay ended.")
 #
 # ControlRoomLogic
 #

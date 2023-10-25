@@ -129,6 +129,7 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.pushCurTrial.connect('clicked(bool)', self.onPushCurTrial)
         self.ui.pushTargetTrial.connect('clicked(bool)', self.onPushTargetTrial)
         self.ui.pushReplay.connect('clicked(bool)', self.onPushReplay)
+        self.ui.pushReplayRecord.connect('clicked(bool)', self.onPushReplayRecord)
 
         self.ui.pushConnect.connect('clicked(bool)', self.onPushConnect)
 
@@ -562,7 +563,8 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._timer_start = datetime.now()
             qt.QTimer.singleShot(329, self.AccuTimerCallBack)
 
-    def onPushReplay(self):
+    def replayInit(self):
+        self.onPushConnect()
         path = self.ui.pathReplay.currentPath 
         if path == '':
             slicer.util.errorDisplay("No file.")
@@ -576,9 +578,17 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         data = np.array(data,dtype=float)
         data = data[:,0:3] # t, x, y
+
+        playspeed = float(self.ui.numReplaySpeed.value)
+        print("[AKTRACK INFO] Setting replay speed " + str(playspeed) + "x.")
         
+        data[:,0] = data[:,0] / float(playspeed)
+
         self.replay_data = data
         self.replay_t_max = np.max(data[:,0])
+
+    def onPushReplay(self):
+        self.replayInit()
 
         if not self._parameterNode.GetNodeReference("TrackerIndicatorTr"):
             transformNode = slicer.vtkMRMLTransformNode()
@@ -614,6 +624,33 @@ class ControlRoomWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.timer_start_replay = datetime.now()
         self.helperReplay()
         print("[AKTRACK INFO] Replay started.")
+
+    def onPushReplayRecord(self):
+        self.replayInit()
+        outputFileDir = self.ui.pathReplaySavePath.currentPath
+        outputFilePath = os.path.basename(self.ui.pathReplay.currentPath) + '.mp4'
+
+        self.screenCapture = slicer.util.getModuleWidget('ScreenCapture')
+        self.screenCapture.rotationSliderWidget.minimumValue = 0
+        self.screenCapture.rotationSliderWidget.maximumValue = 0
+        self.screenCapture.outputTypeWidget.setCurrentIndex(1)
+        self.screenCapture.outputDirSelector.currentPath = outputFileDir
+        self.screenCapture.numberOfStepsSliderWidget.value = 200.0
+        self.screenCapture.videoLengthSliderWidget.value = self.replay_t_max
+        self.screenCapture.videoFrameRateSliderWidget.value = \
+            float(self.screenCapture.numberOfStepsSliderWidget.value) / \
+            float(self.screenCapture.videoLengthSliderWidget.value)
+        self.screenCapture.videoFileNameWidget.text = outputFilePath 
+        
+        durationInSeconds = self.replay_t_max
+        qt.QTimer.singleShot(durationInSeconds * 1000, self.stopReplayRecord)
+        print("[AKTRACK INFO] Record starting.")
+        self.onPushReplay()
+        self.screenCapture.onCaptureButton()
+    
+    def stopReplayRecord(self):
+        print("[AKTRACK INFO] Record stopped.")
+
         
     def helperReplay(self):
         duration = (datetime.now() - self.timer_start_replay).total_seconds()
